@@ -1,0 +1,257 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import { connectDB } from "~/utils/db.js";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+
+const db = await connectDB();
+const practicantes = await db.collection("practicantes").find().toArray();
+---
+<AdminLayout title="Practicantes | FESC">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+      <div>
+        <nav class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+          <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+          <span>/</span>
+          <span class="text-gray-800">Practicantes</span>
+        </nav>
+        <h1 class="text-3xl font-bold text-gray-800">Gestión de Practicantes</h1>
+        <p class="text-gray-600 mt-1">Administra y supervisa el estado de las prácticas profesionales</p>
+      </div>
+      <a href="/admin/nuevo-practicante" class="bg-accent text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        Nuevo Practicante
+      </a>
+    </div>
+
+    <!-- Estadísticas rápidas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">Total</p>
+            <p class="text-2xl font-bold text-gray-800">{practicantes.length}</p>
+          </div>
+          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">Pendientes</p>
+            <p class="text-2xl font-bold text-yellow-600">{practicantes.filter(p => p.estado === 'pendiente').length}</p>
+          </div>
+          <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">En Progreso</p>
+            <p class="text-2xl font-bold text-blue-600">{practicantes.filter(p => p.estado === 'revisando').length}</p>
+          </div>
+          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">Completados</p>
+            <p class="text-2xl font-bold text-green-600">{practicantes.filter(p => p.estado === 'finalizado').length}</p>
+          </div>
+          <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tabla de practicantes -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div class="p-6 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-800">Lista de Practicantes</h2>
+      </div>
+      
+      {practicantes.length === 0 ? (
+        <div class="p-8 text-center">
+          <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+          </svg>
+          <h3 class="text-lg font-medium text-gray-800 mb-2">No hay practicantes registrados</h3>
+          <p class="text-gray-600 mb-4">Comienza registrando el primer practicante en el sistema</p>
+          <a href="/admin/nuevo-practicante" class="bg-accent text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+            Registrar Practicante
+          </a>
+        </div>
+      ) : (
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Practicante</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Laboral</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carrera</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {practicantes.map((practicante) => (
+                <tr class="hover:bg-gray-50 cursor-pointer" onclick={`window.location.href='/admin/practicantes/${practicante._id}'`}>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0 h-10 w-10">
+                        <div class="h-10 w-10 rounded-full overflow-hidden border border-gray-300">
+                          {practicante.foto ? (
+                            <img 
+                              src={`/api/fotos/${practicante._id}`} 
+                              alt={`${practicante.nombres} ${practicante.apellidos}`}
+                              class="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div class="w-full h-full bg-accent flex items-center justify-center">
+                              <span class="text-white font-medium text-sm">{practicante.nombres?.charAt(0) || 'P'}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div class="ml-4">
+                        <div class="text-sm font-medium text-gray-900 hover:text-accent">{practicante.nombres} {practicante.apellidos}</div>
+                        <div class="text-sm text-gray-500">{practicante.correo_institucional}</div>
+                        <div class="text-xs text-gray-400">{practicante.tipo_documento}: {practicante.numero_documento}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${practicante.estado_laboral === 'seeking_internship' ? 'bg-blue-100 text-blue-800' : ''}
+                      ${practicante.estado_laboral === 'working' ? 'bg-green-100 text-green-800' : ''}
+                      ${practicante.estado_laboral === 'entrepreneur' ? 'bg-purple-100 text-purple-800' : ''}
+                      ${!practicante.estado_laboral ? 'bg-gray-100 text-gray-800' : ''}
+                    `}>
+                      {practicante.estado_laboral === 'seeking_internship' ? 'Busca prácticas' : 
+                       practicante.estado_laboral === 'working' ? 'Trabaja' : 
+                       practicante.estado_laboral === 'entrepreneur' ? 'Emprendedor' : 'No especificado'}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">{practicante.programa || 'No especificado'}</div>
+                    {practicante.informacion_academica?.[0]?.institucion && (
+                      <div class="text-sm text-gray-500">Institución: {practicante.informacion_academica[0].institucion}</div>
+                    )}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap">
+                    <span class={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${practicante.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' : ''}
+                      ${practicante.estado === 'revisando' ? 'bg-blue-100 text-blue-800' : ''}
+                      ${practicante.estado === 'finalizado' ? 'bg-green-100 text-green-800' : ''}
+                      ${practicante.estado === 'rechazado' ? 'bg-red-100 text-red-800' : ''}
+                    `}>
+                      {practicante.estado === 'pendiente' ? 'Pendiente' : 
+                       practicante.estado === 'revisando' ? 'En Revisión' : 
+                       practicante.estado === 'finalizado' ? 'Finalizado' : 
+                       practicante.estado === 'rechazado' ? 'Rechazado' : practicante.estado}
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div class="flex items-center gap-2">
+                      <a 
+                        href={`/admin/practicantes/${practicante._id}`}
+                        class="text-accent hover:text-red-700 font-medium"
+                        onclick="event.stopPropagation()"
+                      >
+                        Ver detalles
+                      </a>
+                      <select 
+                        class="block pl-3 pr-8 py-1 text-sm border-gray-300 focus:outline-none focus:ring-accent focus:border-accent rounded-md"
+                        data-id={practicante._id}
+                        data-current-status={practicante.estado}
+                        onchange="updatePracticanteStatus(this)"
+                        onclick="event.stopPropagation()"
+                      >
+                        <option value="pendiente" selected={practicante.estado === 'pendiente'}>Pendiente</option>
+                        <option value="revisando" selected={practicante.estado === 'revisando'}>En Revisión</option>
+                        <option value="finalizado" selected={practicante.estado === 'finalizado'}>Finalizado</option>
+                        <option value="rechazado" selected={practicante.estado === 'rechazado'}>Rechazado</option>
+                      </select>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  </div>
+</AdminLayout>
+
+<script is:inline>
+  async function updatePracticanteStatus(selectElement) {
+    const id = selectElement.dataset.id;
+    const newStatus = selectElement.value;
+    const currentStatus = selectElement.dataset.currentStatus;
+
+    if (newStatus === currentStatus) return;
+
+    try {
+      const res = await fetch(`/api/practicantes/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ estado: newStatus }),
+      });
+
+      if (res.ok) {
+        alert('Estado actualizado correctamente.');
+        window.location.reload(); // Recargar para ver los cambios
+      } else {
+        const data = await res.json();
+        alert(`Error al actualizar estado: ${data.error || 'Error desconocido'}`);
+        selectElement.value = currentStatus; // Revertir selección
+      }
+    } catch (error) {
+      console.error('Error de conexión:', error);
+      alert('Error de conexión al servidor.');
+      selectElement.value = currentStatus; // Revertir selección
+    }
+  }
+</script>

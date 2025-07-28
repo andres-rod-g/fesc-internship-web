@@ -1,0 +1,479 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+
+const { id } = Astro.params;
+const db = await connectDB();
+
+// Buscar empresa por ID
+const empresasCollection = db.collection("empresas");
+const empresa = await empresasCollection.findOne({ _id: new ObjectId(id) });
+
+if (!empresa) {
+  return Astro.redirect("/admin/empresas");
+}
+
+// Obtener todos los practicantes
+const practicantesCollection = db.collection("practicantes");
+const todosPracticantes = await practicantesCollection.find({}).toArray();
+
+// Obtener practicantes asignados a esta empresa
+const practicantesAsignados = empresa.practicantes_asignados || [];
+
+// Obtener practicantes no asignados
+const practicantesNoAsignados = todosPracticantes.filter(p => 
+  !practicantesAsignados.some(pa => pa.practicante_id === p._id.toString())
+);
+---
+<AdminLayout title={`${empresa.nombre} | FESC`}>
+  <div class="max-w-7xl mx-auto space-y-6">
+    <!-- Navegación -->
+    <div class="mb-6">
+      <nav class="flex items-center space-x-2 text-sm text-gray-600">
+        <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+        <span>/</span>
+        <a href="/admin/empresas" class="hover:text-accent transition-colors">Empresas</a>
+        <span>/</span>
+        <span class="text-gray-800">{empresa.nombre}</span>
+      </nav>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-16 h-16 bg-accent rounded-full flex items-center justify-center">
+            <span class="text-white text-2xl font-bold">{empresa.nombre.charAt(0)}</span>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">{empresa.nombre}</h1>
+            <p class="text-gray-600">{empresa.sector || 'Sin sector especificado'}</p>
+            <p class="text-sm text-gray-500">{empresa.practicantes_asignados?.length || 0} practicantes asignados</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button class="btn-secondary" onclick="abrirModalAsignar()">
+            Asignar Practicante
+          </button>
+          <a href={`/admin/empresas/${empresa._id}/editar`} class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            Editar Empresa
+          </a>
+          <a href="/admin/empresas" class="btn-primary">
+            Volver a Empresas
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">Total Asignados</p>
+            <p class="text-2xl font-bold text-gray-800">{empresa.practicantes_asignados?.length || 0}</p>
+          </div>
+          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">Pendientes</p>
+            <p class="text-2xl font-bold text-yellow-600">{empresa.pendientes || 0}</p>
+          </div>
+          <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">Activos</p>
+            <p class="text-2xl font-bold text-blue-600">{empresa.activos || 0}</p>
+          </div>
+          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      
+      <div class="bg-white p-4 rounded-lg border border-gray-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">Completados</p>
+            <p class="text-2xl font-bold text-green-600">{empresa.completados || 0}</p>
+          </div>
+          <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Información de la Empresa -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Información de la Empresa</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-500">NIT</label>
+          <p class="text-gray-800">{empresa.nit || 'No especificado'}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Sector</label>
+          <p class="text-gray-800">{empresa.sector || 'No especificado'}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Tamaño</label>
+          <p class="text-gray-800">{empresa.tamaño || 'No especificado'}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Teléfono</label>
+          <p class="text-gray-800">{empresa.telefono || 'No especificado'}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Tipo de Relación</label>
+          <div class="mt-1">
+            {empresa.tipo_vinculacion ? (
+              <span class={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full 
+                ${empresa.tipo_vinculacion === 'convenio' ? 'bg-blue-100 text-blue-800' : ''}
+                ${empresa.tipo_vinculacion === 'contrato_aprendizaje' ? 'bg-green-100 text-green-800' : ''}
+              `}>
+                {empresa.tipo_vinculacion === 'convenio' ? 'Convenio' : 
+                 empresa.tipo_vinculacion === 'contrato_aprendizaje' ? 'Contrato de Aprendizaje' : empresa.tipo_vinculacion}
+              </span>
+            ) : (
+              <span class="text-gray-500">No especificado</span>
+            )}
+          </div>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-500">Dirección</label>
+          <p class="text-gray-800">{empresa.direccion || 'No especificada'}</p>
+        </div>
+        {empresa.descripcion && (
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-500">Descripción</label>
+            <p class="text-gray-800">{empresa.descripcion}</p>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <!-- Practicantes Asignados -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Practicantes Asignados</h2>
+      
+      {empresa.practicantes_asignados?.length > 0 ? (
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Practicante</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Programa</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jefe Inmediato</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Salario</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              {empresa.practicantes_asignados.map((asignacion) => {
+                const practicante = todosPracticantes.find(p => p._id.toString() === asignacion.practicante_id);
+                return practicante ? (
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center">
+                        <div class="flex-shrink-0 h-10 w-10">
+                          <a href={`/admin/practicantes/${practicante._id}`} class="block">
+                            <div class="h-10 w-10 rounded-full overflow-hidden border border-gray-300 hover:border-accent transition-colors">
+                              {practicante.foto ? (
+                                <img 
+                                  src={`/api/fotos/${practicante._id}`} 
+                                  alt={`${practicante.nombres} ${practicante.apellidos}`}
+                                  class="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div class="w-full h-full bg-accent flex items-center justify-center">
+                                  <span class="text-white font-medium text-sm">{practicante.nombres?.charAt(0) || 'P'}</span>
+                                </div>
+                              )}
+                            </div>
+                          </a>
+                        </div>
+                        <div class="ml-4">
+                          <div class="text-sm font-medium text-gray-900">
+                            <a href={`/admin/practicantes/${practicante._id}`} class="hover:text-accent transition-colors">
+                              {practicante.nombres} {practicante.apellidos}
+                            </a>
+                          </div>
+                          <div class="text-sm text-gray-500">{practicante.correo_institucional}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">{practicante.programa}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="text-sm text-gray-900">
+                        {asignacion.supervisor?.nombre ? (
+                          <div>
+                            <div class="font-medium">{asignacion.supervisor.nombre}</div>
+                            <div class="text-gray-500">{asignacion.supervisor.cargo || 'Sin cargo especificado'}</div>
+                            {asignacion.supervisor.telefono && (
+                              <div class="text-xs text-gray-400">{asignacion.supervisor.telefono}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span class="text-gray-500">No asignado</span>
+                        )}
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <select 
+                        class="text-sm border-gray-300 rounded-md"
+                        data-empresa-id={empresa._id}
+                        data-practicante-id={practicante._id}
+                        data-current-status={asignacion.estado_practica}
+                        onchange="cambiarEstadoPractica(this)"
+                      >
+                        <option value="pendiente" selected={asignacion.estado_practica === 'pendiente'}>Pendiente</option>
+                        <option value="activo" selected={asignacion.estado_practica === 'activo'}>Activo</option>
+                        <option value="completado" selected={asignacion.estado_practica === 'completado'}>Completado</option>
+                      </select>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {asignacion.salario_mensual ? 
+                        `$${asignacion.salario_mensual.toLocaleString('es-ES')}` : 
+                        <span class="text-gray-500">No especificado</span>
+                      }
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div class="flex items-center gap-2">
+                        <a 
+                          href={`/admin/practicantes/${practicante._id}`}
+                          class="text-accent hover:text-red-700 font-medium"
+                        >
+                          Ver Perfil
+                        </a>
+                        <button 
+                          class="text-red-600 hover:text-red-900"
+                          onclick={`desasignarPracticante('${empresa._id}', '${practicante._id}')`}
+                        >
+                          Desasignar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null;
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div class="text-center py-8">
+          <p class="text-gray-500">No hay practicantes asignados a esta empresa</p>
+          <button class="mt-4 btn-primary" onclick="abrirModalAsignar()">
+            Asignar Primer Practicante
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+
+  <!-- Modal para Asignar Practicante -->
+  <div id="modal-asignar" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+      <div class="bg-white rounded-lg max-w-2xl w-full p-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold">Asignar Practicante</h3>
+          <button onclick="cerrarModalAsignar()" class="text-gray-500 hover:text-gray-700">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        
+        <div class="max-h-96 overflow-y-auto">
+          {practicantesNoAsignados.length > 0 ? (
+            <div class="space-y-2">
+              {practicantesNoAsignados.map((practicante) => (
+                <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer" onclick={`seleccionarPracticante('${practicante._id}')`}>
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                      <div class="flex-shrink-0 h-10 w-10">
+                        <div class="h-10 w-10 rounded-full overflow-hidden border border-gray-300">
+                          {practicante.foto ? (
+                            <img 
+                              src={`/api/fotos/${practicante._id}`} 
+                              alt={`${practicante.nombres} ${practicante.apellidos}`}
+                              class="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div class="w-full h-full bg-accent flex items-center justify-center">
+                              <span class="text-white font-medium text-sm">{practicante.nombres?.charAt(0) || 'P'}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div class="ml-4">
+                        <div class="text-sm font-medium text-gray-900">{practicante.nombres} {practicante.apellidos}</div>
+                        <div class="text-sm text-gray-500">{practicante.programa}</div>
+                        <div class="text-xs text-gray-400">{practicante.correo_institucional}</div>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <a 
+                        href={`/admin/practicantes/${practicante._id}`}
+                        class="text-xs text-accent hover:text-red-700 font-medium"
+                        onclick="event.stopPropagation()"
+                      >
+                        Ver Perfil
+                      </a>
+                      <button 
+                        class="text-xs bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
+                        onclick={`event.stopPropagation(); seleccionarPracticante('${practicante._id}')`}
+                      >
+                        Asignar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p class="text-gray-500 text-center py-8">No hay practicantes disponibles para asignar</p>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script is:inline define:vars={{ empresa, practicantesNoAsignados }}>
+  function abrirModalAsignar() {
+    document.getElementById('modal-asignar').classList.remove('hidden');
+  }
+
+  function cerrarModalAsignar() {
+    document.getElementById('modal-asignar').classList.add('hidden');
+  }
+
+  async function seleccionarPracticante(practicanteId) {
+    try {
+      const response = await fetch(`/api/empresas/${empresa._id}/asignar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          practicante_id: practicanteId,
+          estado_practica: 'pendiente'
+        }),
+      });
+
+      if (response.ok) {
+        alert('Practicante asignado exitosamente');
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  }
+
+  async function cambiarEstadoPractica(select) {
+    const empresaId = select.dataset.empresaId;
+    const practicanteId = select.dataset.practicanteId;
+    const nuevoEstado = select.value;
+    const estadoActual = select.dataset.currentStatus;
+
+    if (nuevoEstado === estadoActual) return;
+
+    try {
+      const response = await fetch(`/api/empresas/${empresaId}/cambiar-estado`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          practicante_id: practicanteId,
+          estado_practica: nuevoEstado
+        }),
+      });
+
+      if (response.ok) {
+        alert('Estado actualizado exitosamente');
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+        select.value = estadoActual;
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+      select.value = estadoActual;
+    }
+  }
+
+  async function desasignarPracticante(empresaId, practicanteId) {
+    if (!confirm('¿Estás seguro de que deseas desasignar este practicante?')) return;
+
+    try {
+      const response = await fetch(`/api/empresas/${empresaId}/desasignar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ practicante_id: practicanteId }),
+      });
+
+      if (response.ok) {
+        alert('Practicante desasignado exitosamente');
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  }
+</script>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Plantilla CV</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+        }
+        
+        /* Preservar estilos originales del documento */
+        p { margin: 6pt 0; }
+        strong, b { font-weight: bold; }
+        em, i { font-style: italic; }
+        
+        /* Estilos para tablas si las hay */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        td, th {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        /* Estilos para imágenes */
+        img {
+            max-width: 150px;
+            height: auto;
+            display: block;
+            margin: 10px 0;
+        }
+        
+        /* Estilos de impresión */
+        @media print {
+            body {
+                margin: 0;
+                padding: 15px;
+                font-size: 12px;
+            }
+            
+            @page {
+                margin: 2cm;
+                size: A4;
+            }
+        }
+        
+        /* Clases para campos dinámicos */
+        .dynamic-field {
+            background-color: #f0f8ff;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-weight: normal;
+        }
+        
+        .image-placeholder {
+            width: 150px;
+            height: 150px;
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+<table><tr><td colspan="3"><p><strong>1. INFORMACIÓN PERSONAL</strong></p></td></tr><tr><td rowspan="7"><p>{%picture}</p></td><td colspan="2"><p><strong>Programa: {program}</strong></p></td></tr><tr><td><p><strong>Nombre: {name}</strong></p></td><td><p><strong>Apellidos: {lastname}</strong></p></td></tr><tr><td><p><strong>Documento de Identificación No:</strong></p><p><strong>{doc-number}</strong></p></td><td><p><strong>Tipo de documento:</strong> {doc-type}</p></td></tr><tr><td><p><strong>Fecha de Nacimiento:</strong></p><p>{b-day}</p></td><td><p><strong>Lugar de Nacimiento:<br /></strong>{b-place}</p></td></tr><tr><td><p><strong>Dirección Residencia (Incluya Barrio):</strong></p><p>{address}</p></td><td><p><strong>Teléfono:<br />{telephone}</strong></p></td></tr><tr><td><p><strong>Teléfono celular:</strong></p><p>{phone}</p></td><td><p><strong>Correo electrónico (FESC):</strong></p><p>{i-email}</p></td></tr><tr><td colspan="2"><p><strong>Correo personal: {p-email}</strong></p></td></tr></table><table><tr><td><p><strong>2. INFORMACIÓN ACADÉMICA</strong></p></td></tr><tr><td><p>{academic-info}</p></td></tr></table><table><tr><td><p><strong>3. PERFIL PROFESIONAL</strong></p></td></tr><tr><td><p>{profile}</p></td></tr></table><table><tr><td><p><strong>4. HERRAMIENTAS DE DESA RROLLO (HARDWARE – SOFTWARE)</strong></p></td></tr><tr><td><p><strong>{tools}</strong></p></td></tr><tr><td><p><strong>5. EXPERIENCIA LABORAL</strong></p></td></tr><tr><td><p><strong>{experience}</strong></p></td></tr></table><p><strong>Certificación</strong></p><p>Manifiesto que  la  hoja  de  vida  presentada  bajo  gravedad  de  juramento  es  verídica  y autorizo  a  la  entidad  correspondiente  a  realizar   consulta  e  indagaciones  pertinentes  para  la corroboración de lo suministrado.</p><table><tr><td><p><strong>7. FIRMA	</strong></p></td></tr><tr><td><p><strong>Estudiante:</strong></p><p>{%sign-image}</p><p><strong>FIRMA:_______________________________________________</strong></p><p>C.C.  <strong>{doc-number}</strong>                      DE {doc-from}</p></td></tr></table>
+</body>
+</html>

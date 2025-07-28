@@ -1,0 +1,357 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+
+const { id } = Astro.params;
+const db = await connectDB();
+
+// Buscar empresa por ID
+const empresasCollection = db.collection("empresas");
+const empresa = await empresasCollection.findOne({ _id: new ObjectId(id) });
+
+if (!empresa) {
+  return Astro.redirect("/admin/empresas");
+}
+---
+<AdminLayout title={`Editar ${empresa.nombre} | FESC`}>
+  <div class="max-w-4xl mx-auto space-y-6">
+    <!-- Navegación -->
+    <div class="mb-6">
+      <nav class="flex items-center space-x-2 text-sm text-gray-600">
+        <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+        <span>/</span>
+        <a href="/admin/empresas" class="hover:text-accent transition-colors">Empresas</a>
+        <span>/</span>
+        <a href={`/admin/empresas/${empresa._id}`} class="hover:text-accent transition-colors">{empresa.nombre}</a>
+        <span>/</span>
+        <span class="text-gray-800">Editar</span>
+      </nav>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-800">Editar Empresa</h1>
+          <p class="text-gray-600 mt-1">Actualiza la información de {empresa.nombre}</p>
+        </div>
+        <a href={`/admin/empresas/${empresa._id}`} class="btn-secondary">
+          Cancelar
+        </a>
+      </div>
+    </div>
+
+    <!-- Formulario de Edición -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <form id="editarEmpresaForm" class="space-y-6">
+        <input type="hidden" id="empresaId" value={empresa._id} />
+        
+        <!-- Información Básica -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label for="nombre" class="block text-sm font-medium text-gray-700 mb-2">
+              Nombre de la Empresa *
+            </label>
+            <input 
+              type="text" 
+              id="nombre" 
+              name="nombre" 
+              value={empresa.nombre}
+              required 
+              class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+            />
+          </div>
+
+          <div>
+            <label for="nit" class="block text-sm font-medium text-gray-700 mb-2">
+              NIT
+            </label>
+            <input 
+              type="text" 
+              id="nit" 
+              name="nit" 
+              value={empresa.nit || ''}
+              class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+            />
+          </div>
+
+          <div>
+            <label for="sector" class="block text-sm font-medium text-gray-700 mb-2">
+              Sector
+            </label>
+            <select 
+              id="sector" 
+              name="sector" 
+              class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+            >
+              <option value="">Selecciona un sector</option>
+              <option value="Tecnología" selected={empresa.sector === 'Tecnología'}>Tecnología</option>
+              <option value="Salud" selected={empresa.sector === 'Salud'}>Salud</option>
+              <option value="Educación" selected={empresa.sector === 'Educación'}>Educación</option>
+              <option value="Comercio" selected={empresa.sector === 'Comercio'}>Comercio</option>
+              <option value="Manufactura" selected={empresa.sector === 'Manufactura'}>Manufactura</option>
+              <option value="Servicios" selected={empresa.sector === 'Servicios'}>Servicios</option>
+              <option value="Otro" selected={empresa.sector === 'Otro'}>Otro</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="tamaño" class="block text-sm font-medium text-gray-700 mb-2">
+              Tamaño de la Empresa
+            </label>
+            <select 
+              id="tamaño" 
+              name="tamaño" 
+              class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+            >
+              <option value="">Selecciona el tamaño</option>
+              <option value="Pequeña (1-50 empleados)" selected={empresa.tamaño === 'Pequeña (1-50 empleados)'}>Pequeña (1-50 empleados)</option>
+              <option value="Mediana (51-200 empleados)" selected={empresa.tamaño === 'Mediana (51-200 empleados)'}>Mediana (51-200 empleados)</option>
+              <option value="Grande (201+ empleados)" selected={empresa.tamaño === 'Grande (201+ empleados)'}>Grande (201+ empleados)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="tipo_vinculacion" class="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Relación *
+            </label>
+            <select 
+              id="tipo_vinculacion" 
+              name="tipo_vinculacion" 
+              required
+              class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+            >
+              <option value="">Selecciona el tipo de relación</option>
+              <option value="convenio" selected={empresa.tipo_vinculacion === 'convenio'}>Convenio</option>
+              <option value="contrato_aprendizaje" selected={empresa.tipo_vinculacion === 'contrato_aprendizaje'}>Contrato de Aprendizaje</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="telefono" class="block text-sm font-medium text-gray-700 mb-2">
+              Teléfono
+            </label>
+            <input 
+              type="tel" 
+              id="telefono" 
+              name="telefono" 
+              value={empresa.telefono || ''}
+              class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+            />
+          </div>
+        </div>
+
+        <!-- Dirección -->
+        <div>
+          <label for="direccion" class="block text-sm font-medium text-gray-700 mb-2">
+            Dirección
+          </label>
+          <input 
+            type="text" 
+            id="direccion" 
+            name="direccion" 
+            value={empresa.direccion || ''}
+            class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+          />
+        </div>
+
+        <!-- Información de Contacto -->
+        <div class="border-t border-gray-200 pt-6">
+          <h3 class="text-lg font-medium text-gray-800 mb-4">Información de Contacto</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                Email de la Empresa
+              </label>
+              <input 
+                type="email" 
+                id="email" 
+                name="email" 
+                value={empresa.email || ''}
+                class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+              />
+            </div>
+
+            <div>
+              <label for="sitio_web" class="block text-sm font-medium text-gray-700 mb-2">
+                Sitio Web
+              </label>
+              <input 
+                type="url" 
+                id="sitio_web" 
+                name="sitio_web" 
+                value={empresa.sitio_web || ''}
+                placeholder="https://ejemplo.com"
+                class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+              />
+            </div>
+
+            <div>
+              <label for="contacto_nombre" class="block text-sm font-medium text-gray-700 mb-2">
+                Nombre del Contacto
+              </label>
+              <input 
+                type="text" 
+                id="contacto_nombre" 
+                name="contacto_nombre" 
+                value={empresa.contacto_nombre || ''}
+                class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+              />
+            </div>
+
+            <div>
+              <label for="contacto_cargo" class="block text-sm font-medium text-gray-700 mb-2">
+                Cargo del Contacto
+              </label>
+              <input 
+                type="text" 
+                id="contacto_cargo" 
+                name="contacto_cargo" 
+                value={empresa.contacto_cargo || ''}
+                class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+              />
+            </div>
+
+            <div>
+              <label for="contacto_telefono" class="block text-sm font-medium text-gray-700 mb-2">
+                Teléfono del Contacto
+              </label>
+              <input 
+                type="tel" 
+                id="contacto_telefono" 
+                name="contacto_telefono" 
+                value={empresa.contacto_telefono || ''}
+                class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+              />
+            </div>
+
+            <div>
+              <label for="contacto_email" class="block text-sm font-medium text-gray-700 mb-2">
+                Email del Contacto
+              </label>
+              <input 
+                type="email" 
+                id="contacto_email" 
+                name="contacto_email" 
+                value={empresa.contacto_email || ''}
+                class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Información Adicional -->
+        <div class="border-t border-gray-200 pt-6">
+          <h3 class="text-lg font-medium text-gray-800 mb-4">Información Adicional</h3>
+          <div class="space-y-4">
+            <div>
+              <label for="descripcion" class="block text-sm font-medium text-gray-700 mb-2">
+                Descripción de la Empresa
+              </label>
+              <textarea 
+                id="descripcion" 
+                name="descripcion" 
+                rows="3"
+                class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent resize-none"
+              >{empresa.descripcion || ''}</textarea>
+            </div>
+
+            <div>
+              <label for="areas_practica" class="block text-sm font-medium text-gray-700 mb-2">
+                Áreas de Práctica Disponibles
+              </label>
+              <textarea 
+                id="areas_practica" 
+                name="areas_practica" 
+                rows="2"
+                placeholder="Ej: Desarrollo de software, Marketing digital, Contabilidad..."
+                class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent resize-none"
+              >{empresa.areas_practica || ''}</textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label for="max_practicantes" class="block text-sm font-medium text-gray-700 mb-2">
+                  Máximo de Practicantes
+                </label>
+                <input 
+                  type="number" 
+                  id="max_practicantes" 
+                  name="max_practicantes" 
+                  value={empresa.max_practicantes || ''}
+                  min="1"
+                  class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="flex justify-end gap-4 pt-6 border-t border-gray-200">
+          <a href={`/admin/empresas/${empresa._id}`} class="btn-secondary">
+            Cancelar
+          </a>
+          <button type="submit" class="btn-primary">
+            Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script is:inline>
+  document.getElementById('editarEmpresaForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const empresaId = document.getElementById('empresaId').value;
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Convertir max_practicantes a número si existe
+    if (data.max_practicantes) {
+      data.max_practicantes = parseInt(data.max_practicantes);
+    }
+    
+    try {
+      const response = await fetch(`/api/empresas/${empresaId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (response.ok) {
+        alert('Empresa actualizada exitosamente');
+        window.location.href = `/admin/empresas/${empresaId}`;
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión al servidor');
+    }
+  });
+</script>

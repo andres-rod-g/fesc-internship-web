@@ -1,0 +1,80 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+---
+<AdminLayout title="Nuevo Practicante | FESC">
+  <div class="max-w-4xl mx-auto">
+    <div class="mb-6">
+      <nav class="flex items-center space-x-2 text-sm text-gray-600">
+        <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+        <span>/</span>
+        <span class="text-gray-800">Nuevo Practicante</span>
+      </nav>
+    </div>
+    
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      <div class="text-center">
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">Registrar Nuevo Practicante</h1>
+        <p class="text-gray-600 mb-6">
+          Para facilitar el proceso, los estudiantes pueden registrarse directamente usando el formulario público.
+        </p>
+        
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/formulario" target="_blank" class="inline-flex items-center justify-center bg-accent text-white rounded-lg px-6 py-3 font-semibold hover:bg-red-700 transition-all duration-200">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+            </svg>
+            Abrir Formulario Público
+          </a>
+          
+          <a href="/admin/practicantes" class="inline-flex items-center justify-center bg-gray-100 text-gray-700 rounded-lg px-6 py-3 font-semibold hover:bg-gray-200 transition-all duration-200">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            Ver Practicantes Registrados
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Instrucciones para compartir el formulario -->
+    <div class="bg-blue-50 rounded-xl border border-blue-200 p-6">
+      <h3 class="text-lg font-semibold text-blue-900 mb-3">💡 Instrucciones para los Estudiantes</h3>
+      <div class="space-y-3 text-blue-800">
+        <p>
+          <strong>Enlace directo al formulario:</strong> 
+          <code class="bg-blue-100 px-2 py-1 rounded text-sm ml-2">
+            {Astro.url.origin}/formulario
+          </code>
+        </p>
+        <p>
+          Los estudiantes pueden acceder al formulario de registro sin necesidad de crear una cuenta. 
+          Una vez completado, los datos aparecerán automáticamente en el panel de administración.
+        </p>
+        <ul class="list-disc pl-5 space-y-1 text-sm">
+          <li>El formulario es completamente público y accesible</li>
+          <li>Incluye validación de datos en tiempo real</li>
+          <li>Los administradores pueden cambiar el estado de las solicitudes</li>
+          <li>Se generan estadísticas automáticamente</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

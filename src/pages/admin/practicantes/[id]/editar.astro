@@ -1,0 +1,540 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+
+const { id } = Astro.params;
+const db = await connectDB();
+const practicante = await db.collection("practicantes").findOne({ _id: new ObjectId(id) });
+
+if (!practicante) {
+  return Astro.redirect("/admin/practicantes");
+}
+---
+<AdminLayout title={`Editar - ${practicante.nombres} ${practicante.apellidos} | FESC`}>
+  <div class="max-w-6xl mx-auto space-y-6">
+    <!-- Navegación -->
+    <div class="mb-6">
+      <nav class="flex items-center space-x-2 text-sm text-gray-600">
+        <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+        <span>/</span>
+        <a href="/admin/practicantes" class="hover:text-accent transition-colors">Practicantes</a>
+        <span>/</span>
+        <a href={`/admin/practicantes/${id}`} class="hover:text-accent transition-colors">{practicante.nombres} {practicante.apellidos}</a>
+        <span>/</span>
+        <span class="text-gray-800">Editar</span>
+      </nav>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-16 h-16 bg-accent rounded-full flex items-center justify-center">
+            <span class="text-white text-2xl font-bold">{practicante.nombres?.charAt(0)}</span>
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">Editar Información</h1>
+            <p class="text-gray-600">{practicante.nombres} {practicante.apellidos}</p>
+            <p class="text-sm text-gray-500">{practicante.tipo_documento}: {practicante.numero_documento}</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <a href={`/admin/practicantes/${id}`} class="btn-secondary">
+            Cancelar
+          </a>
+          <button id="guardar-cambios" class="btn-primary">
+            Guardar Cambios
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Formulario de Edición -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <form id="edit-form" class="space-y-8">
+        <!-- Foto de Perfil -->
+        <div class="border-b border-gray-200 pb-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Foto de Perfil</h3>
+          
+          <div class="flex items-start gap-6">
+            <div class="flex-shrink-0">
+              <div class="w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-300 bg-gray-50">
+                {practicante.foto ? (
+                  <img 
+                    id="foto-preview"
+                    src={`/api/fotos/${practicante._id}`} 
+                    alt="Foto actual"
+                    class="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div id="foto-preview" class="w-full h-full bg-accent flex items-center justify-center">
+                    <span class="text-white text-3xl font-bold">{practicante.nombres?.charAt(0)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Cambiar foto de perfil
+              </label>
+              <input 
+                type="file" 
+                id="foto-input" 
+                accept="image/*" 
+                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-white hover:file:bg-accent/90"
+              >
+              <p class="text-xs text-gray-500 mt-1">PNG, JPG hasta 5MB</p>
+              <button type="button" id="eliminar-foto" class="mt-2 text-sm text-red-600 hover:text-red-800">
+                Eliminar foto actual
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Información Personal -->
+        <div class="border-b border-gray-200 pb-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Información Personal</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Programa Académico *
+              </label>
+              <select id="programa" name="programa" class="input-primary" required>
+                <option value="">Selecciona un programa</option>
+                <option value="Ingeniería de Software">Ingeniería de Software</option>
+                <option value="Tecnología en Desarrollo de Software">Tecnología en Desarrollo de Software</option>
+                <option value="Diseño de Modas">Diseño de Modas</option>
+                <option value="Mercadeo">Mercadeo</option>
+                <option value="Administración de Empresas">Administración de Empresas</option>
+                <option value="Contaduría Pública">Contaduría Pública</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Ciclo *
+              </label>
+              <select id="ciclo" name="ciclo" class="input-primary" required>
+                <option value="">Selecciona un ciclo</option>
+                <option value="Tecnólogo">Tecnólogo</option>
+                <option value="Profesional">Profesional</option>
+              </select>
+            </div>
+            
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Modalidad * (Puedes seleccionar varias)
+              </label>
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="modalidad-container">
+                <!-- Las modalidades se llenarán con JavaScript -->
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Nombres *
+              </label>
+              <input type="text" id="nombres" name="nombres" class="input-primary" required>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Apellidos *
+              </label>
+              <input type="text" id="apellidos" name="apellidos" class="input-primary" required>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Documento *
+              </label>
+              <select id="tipo_documento" name="tipo_documento" class="input-primary" required>
+                <option value="">Selecciona</option>
+                <option value="TI">Tarjeta de Identidad</option>
+                <option value="CC">Cédula de Ciudadanía</option>
+                <option value="CE">Cédula de Extranjería</option>
+              </select>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Número de Documento *
+              </label>
+              <input type="text" id="numero_documento" name="numero_documento" class="input-primary" required>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Fecha de Nacimiento
+              </label>
+              <input type="date" id="fecha_nacimiento" name="fecha_nacimiento" class="input-primary">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Lugar de Nacimiento
+              </label>
+              <input type="text" id="lugar_nacimiento" name="lugar_nacimiento" class="input-primary">
+            </div>
+            
+            <div class="md:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Dirección de Residencia
+              </label>
+              <input type="text" id="direccion_residencia" name="direccion_residencia" class="input-primary">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Teléfono Fijo
+              </label>
+              <input type="tel" id="telefono_fijo" name="telefono_fijo" class="input-primary">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Teléfono Celular
+              </label>
+              <input type="tel" id="telefono_celular" name="telefono_celular" class="input-primary">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Correo Institucional *
+              </label>
+              <input type="email" id="correo_institucional" name="correo_institucional" class="input-primary" required>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Correo Personal
+              </label>
+              <input type="email" id="correo_personal" name="correo_personal" class="input-primary">
+            </div>
+          </div>
+        </div>
+
+        <!-- Perfil Profesional -->
+        <div class="border-b border-gray-200 pb-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Perfil Profesional</h3>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Describe tu perfil profesional, habilidades y experiencia
+            </label>
+            <textarea id="perfil_profesional" name="perfil_profesional" rows="6" class="input-primary resize-none"></textarea>
+          </div>
+        </div>
+
+        <!-- Firma Digital -->
+        <div class="border-b border-gray-200 pb-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Firma Digital</h3>
+          
+          <div class="space-y-4">
+            {practicante.firma_png && (
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Firma actual</label>
+                <div class="max-w-md border border-gray-300 rounded-lg p-4 bg-white">
+                  <img 
+                    id="firma-preview"
+                    src={`/api/signatures/${practicante._id}`} 
+                    alt="Firma actual" 
+                    class="max-w-full h-auto"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Nueva firma digital
+              </label>
+              <canvas 
+                id="firma-canvas" 
+                width="400" 
+                height="200" 
+                class="border border-gray-300 rounded-lg cursor-crosshair bg-white"
+                style="touch-action: none;"
+              ></canvas>
+              
+              <div class="flex gap-2 mt-2">
+                <button type="button" id="limpiar-firma" class="text-sm px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600">
+                  Limpiar
+                </button>
+                <button type="button" id="eliminar-firma" class="text-sm px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">
+                  Eliminar firma actual
+                </button>
+              </div>
+              
+              <p class="text-xs text-gray-500 mt-1">Dibuja tu firma usando el mouse o touch</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mensaje de estado -->
+        <div id="mensaje" class="hidden p-4 rounded-lg"></div>
+        
+        <!-- Botones de acción -->
+        <div class="flex justify-end gap-4">
+          <a href={`/admin/practicantes/${id}`} class="btn-secondary">
+            Cancelar
+          </a>
+          <button type="submit" class="btn-primary">
+            Guardar Cambios
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</AdminLayout>
+
+<script is:inline define:vars={{ practicante }}>
+  const modalidades = ['Presencial', 'Virtual', 'Diurna', 'Nocturna', 'Distancia', 'Ocaña'];
+  let canvas, ctx;
+  let isDrawing = false;
+  let fotoSeleccionada = null;
+  let firmaModificada = false;
+  let eliminarFotoActual = false;
+  let eliminarFirmaActual = false;
+  
+  // Llenar formulario con datos actuales
+  document.addEventListener('DOMContentLoaded', function() {
+    // Información personal
+    document.getElementById('programa').value = practicante.programa || '';
+    document.getElementById('ciclo').value = practicante.ciclo || '';
+    document.getElementById('nombres').value = practicante.nombres || '';
+    document.getElementById('apellidos').value = practicante.apellidos || '';
+    document.getElementById('tipo_documento').value = practicante.tipo_documento || '';
+    document.getElementById('numero_documento').value = practicante.numero_documento || '';
+    document.getElementById('fecha_nacimiento').value = practicante.fecha_nacimiento || '';
+    document.getElementById('lugar_nacimiento').value = practicante.lugar_nacimiento || '';
+    document.getElementById('direccion_residencia').value = practicante.direccion_residencia || '';
+    document.getElementById('telefono_fijo').value = practicante.telefono_fijo || '';
+    document.getElementById('telefono_celular').value = practicante.telefono_celular || '';
+    document.getElementById('correo_institucional').value = practicante.correo_institucional || '';
+    document.getElementById('correo_personal').value = practicante.correo_personal || '';
+    document.getElementById('perfil_profesional').value = practicante.perfil_profesional || '';
+    
+    // Modalidades
+    const modalidadContainer = document.getElementById('modalidad-container');
+    modalidades.forEach(modalidad => {
+      const isChecked = practicante.modalidad && practicante.modalidad.includes(modalidad);
+      modalidadContainer.innerHTML += `
+        <label class="flex items-center space-x-2">
+          <input type="checkbox" name="modalidad" value="${modalidad}" ${isChecked ? 'checked' : ''} class="w-4 h-4 text-accent focus:ring-accent border-gray-300 rounded">
+          <span class="text-sm text-gray-700">${modalidad}</span>
+        </label>
+      `;
+    });
+
+    // Configurar canvas para firma
+    canvas = document.getElementById('firma-canvas');
+    ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+
+    // Eventos del canvas
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseout', stopDrawing);
+
+    // Eventos táctiles
+    canvas.addEventListener('touchstart', handleTouch);
+    canvas.addEventListener('touchmove', handleTouch);
+    canvas.addEventListener('touchend', stopDrawing);
+
+    // Manejar foto
+    document.getElementById('foto-input').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+          alert('El archivo es muy grande. Máximo 5MB.');
+          return;
+        }
+        
+        fotoSeleccionada = file;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const preview = document.getElementById('foto-preview');
+          preview.innerHTML = `<img src="${e.target.result}" alt="Preview" class="w-full h-full object-cover">`;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Eliminar foto
+    document.getElementById('eliminar-foto').addEventListener('click', function() {
+      if (confirm('¿Estás seguro de que deseas eliminar la foto actual?')) {
+        eliminarFotoActual = true;
+        const preview = document.getElementById('foto-preview');
+        preview.innerHTML = `<div class="w-full h-full bg-accent flex items-center justify-center"><span class="text-white text-3xl font-bold">${practicante.nombres?.charAt(0) || 'U'}</span></div>`;
+        document.getElementById('foto-input').value = '';
+        fotoSeleccionada = null;
+      }
+    });
+
+    // Limpiar firma
+    document.getElementById('limpiar-firma').addEventListener('click', function() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      firmaModificada = true;
+    });
+
+    // Eliminar firma actual
+    document.getElementById('eliminar-firma').addEventListener('click', function() {
+      if (confirm('¿Estás seguro de que deseas eliminar la firma actual?')) {
+        eliminarFirmaActual = true;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        firmaModificada = true;
+        const firmaPreview = document.getElementById('firma-preview');
+        if (firmaPreview) {
+          firmaPreview.style.display = 'none';
+        }
+      }
+    });
+  });
+
+  // Funciones para el canvas de firma
+  function startDrawing(e) {
+    isDrawing = true;
+    firmaModificada = true;
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+  }
+
+  function draw(e) {
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.stroke();
+  }
+
+  function stopDrawing() {
+    isDrawing = false;
+  }
+
+  function handleTouch(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
+                                     e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
+      clientX: touch.clientX,
+      clientY: touch.clientY
+    });
+    canvas.dispatchEvent(mouseEvent);
+  }
+
+  // Enviar formulario
+  document.getElementById('edit-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    
+    // Recopilar modalidades seleccionadas
+    const modalidadSeleccionadas = Array.from(document.querySelectorAll('input[name="modalidad"]:checked')).map(cb => cb.value);
+    
+    // Datos básicos
+    const data = {
+      programa: document.getElementById('programa').value,
+      ciclo: document.getElementById('ciclo').value,
+      modalidad: modalidadSeleccionadas,
+      nombres: document.getElementById('nombres').value,
+      apellidos: document.getElementById('apellidos').value,
+      tipo_documento: document.getElementById('tipo_documento').value,
+      numero_documento: document.getElementById('numero_documento').value,
+      fecha_nacimiento: document.getElementById('fecha_nacimiento').value,
+      lugar_nacimiento: document.getElementById('lugar_nacimiento').value,
+      direccion_residencia: document.getElementById('direccion_residencia').value,
+      telefono_fijo: document.getElementById('telefono_fijo').value,
+      telefono_celular: document.getElementById('telefono_celular').value,
+      correo_institucional: document.getElementById('correo_institucional').value,
+      correo_personal: document.getElementById('correo_personal').value,
+      perfil_profesional: document.getElementById('perfil_profesional').value
+    };
+
+    // Agregar foto si se seleccionó una nueva
+    if (fotoSeleccionada) {
+      formData.append('foto', fotoSeleccionada);
+    }
+
+    // Agregar firma si se modificó
+    if (firmaModificada) {
+      if (eliminarFirmaActual) {
+        formData.append('eliminarFirma', 'true');
+      } else {
+        // Convertir canvas a blob de forma síncrona
+        const imageData = canvas.toDataURL('image/png');
+        const byteString = atob(imageData.split(',')[1]);
+        const mimeString = imageData.split(',')[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: mimeString });
+        formData.append('firma', blob, 'firma.png');
+      }
+    }
+
+    // Indicar si se debe eliminar la foto actual
+    if (eliminarFotoActual) {
+      formData.append('eliminarFoto', 'true');
+    }
+
+    // Agregar datos JSON
+    formData.append('data', JSON.stringify(data));
+    
+    try {
+      const response = await fetch(`/api/practicantes/${practicante._id}`, {
+        method: 'PUT',
+        body: formData, // Enviar FormData directamente (no JSON)
+      });
+      
+      const result = await response.json();
+      const mensaje = document.getElementById('mensaje');
+      
+      if (response.ok) {
+        mensaje.className = 'p-4 rounded-lg bg-green-100 text-green-800';
+        mensaje.textContent = 'Cambios guardados exitosamente';
+        mensaje.classList.remove('hidden');
+        
+        setTimeout(() => {
+          window.location.href = `/admin/practicantes/${practicante._id}`;
+        }, 2000);
+      } else {
+        mensaje.className = 'p-4 rounded-lg bg-red-100 text-red-800';
+        mensaje.textContent = result.error || 'Error al guardar los cambios';
+        mensaje.classList.remove('hidden');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      const mensaje = document.getElementById('mensaje');
+      mensaje.className = 'p-4 rounded-lg bg-red-100 text-red-800';
+      mensaje.textContent = 'Error de conexión al servidor';
+      mensaje.classList.remove('hidden');
+    }
+  });
+</script>

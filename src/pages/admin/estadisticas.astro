@@ -1,0 +1,758 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+
+const db = await connectDB();
+
+// 1. ESTADÍSTICAS GENERALES
+const totalPracticantes = await db.collection("practicantes").countDocuments();
+const totalEmpresas = await db.collection("empresas").countDocuments();
+
+// 2. ANÁLISIS DE ESTADOS DE PRACTICANTES
+const estadosPracticantes = await db.collection("practicantes").aggregate([
+  {
+    $group: {
+      _id: "$estado",
+      count: { $sum: 1 }
+    }
+  }
+]).toArray();
+
+// 3. REGISTROS POR MES (últimos 12 meses)
+const hace12Meses = new Date();
+hace12Meses.setMonth(hace12Meses.getMonth() - 12);
+
+const registrosPorMes = await db.collection("practicantes").aggregate([
+  {
+    $match: {
+      _id: { $gte: hace12Meses }
+    }
+  },
+  {
+    $group: {
+      _id: {
+        año: { $year: "$_id" },
+        mes: { $month: "$_id" }
+      },
+      count: { $sum: 1 }
+    }
+  },
+  { $sort: { "_id.año": 1, "_id.mes": 1 } }
+]).toArray();
+
+// 4. DISTRIBUCIÓN POR PROGRAMAS ACADÉMICOS
+const programas = await db.collection("practicantes").aggregate([
+  {
+    $group: {
+      _id: "$programa",
+      total: { $sum: 1 },
+      pendientes: { $sum: { $cond: [{ $eq: ["$estado", "pendiente"] }, 1, 0] } },
+      revisando: { $sum: { $cond: [{ $eq: ["$estado", "revisando"] }, 1, 0] } },
+      finalizados: { $sum: { $cond: [{ $eq: ["$estado", "finalizado"] }, 1, 0] } },
+      rechazados: { $sum: { $cond: [{ $eq: ["$estado", "rechazado"] }, 1, 0] } }
+    }
+  },
+  { $sort: { total: -1 } }
+]).toArray();
+
+// 5. DISTRIBUCIÓN POR MODALIDAD
+const modalidades = await db.collection("practicantes").aggregate([
+  { $unwind: "$modalidad" },
+  {
+    $group: {
+      _id: "$modalidad",
+      count: { $sum: 1 }
+    }
+  },
+  { $sort: { count: -1 } }
+]).toArray();
+
+// 6. DISTRIBUCIÓN POR CICLO (Tecnólogo/Profesional)
+const ciclos = await db.collection("practicantes").aggregate([
+  {
+    $group: {
+      _id: "$ciclo",
+      count: { $sum: 1 }
+    }
+  }
+]).toArray();
+
+// 7. HERRAMIENTAS MÁS UTILIZADAS
+const herramientas = await db.collection("practicantes").aggregate([
+  { $unwind: "$herramientas" },
+  {
+    $group: {
+      _id: "$herramientas",
+      count: { $sum: 1 }
+    }
+  },
+  { $sort: { count: -1 } },
+  { $limit: 10 }
+]).toArray();
+
+// 8. ANÁLISIS DE EXPERIENCIA LABORAL
+const experienciaLaboral = await db.collection("practicantes").aggregate([
+  {
+    $project: {
+      tieneExperiencia: { $gt: [{ $size: { $ifNull: ["$experiencia_laboral", []] } }, 0] }
+    }
+  },
+  {
+    $group: {
+      _id: "$tieneExperiencia",
+      count: { $sum: 1 }
+    }
+  }
+]).toArray();
+
+// 9. EMPRESAS TOP POR PRACTICANTES
+const empresasTop = await db.collection("empresas").aggregate([
+  {
+    $project: {
+      nombre: 1,
+      sector: 1,
+      totalPracticantes: { $size: { $ifNull: ["$practicantes_asignados", []] } },
+      practicantesActivos: {
+        $size: {
+          $filter: {
+            input: { $ifNull: ["$practicantes_asignados", []] },
+            cond: { $in: ["$$this.estado_practica", ["pendiente", "activo"]] }
+          }
+        }
+      },
+      practicantesCompletados: {
+        $size: {
+          $filter: {
+            input: { $ifNull: ["$practicantes_asignados", []] },
+            cond: { $eq: ["$$this.estado_practica", "completado"] }
+          }
+        }
+      }
+    }
+  },
+  { $sort: { totalPracticantes: -1 } },
+  { $limit: 8 }
+]).toArray();
+
+// 10. DISTRIBUCIÓN POR SECTORES EMPRESARIALES
+const sectores = await db.collection("empresas").aggregate([
+  {
+    $group: {
+      _id: "$sector",
+      empresas: { $sum: 1 },
+      totalPracticantes: { $sum: { $size: { $ifNull: ["$practicantes_asignados", []] } } }
+    }
+  },
+  { $sort: { totalPracticantes: -1 } }
+]).toArray();
+
+// 11. ESTADOS DE PRÁCTICAS EN EMPRESAS
+const estadosPracticas = await db.collection("empresas").aggregate([
+  { $unwind: "$practicantes_asignados" },
+  {
+    $group: {
+      _id: "$practicantes_asignados.estado_practica",
+      count: { $sum: 1 }
+    }
+  }
+]).toArray();
+
+// 12. ACTIVIDAD RECIENTE (últimos 30 días)
+const hace30Dias = new Date();
+hace30Dias.setDate(hace30Dias.getDate() - 30);
+
+const actividadReciente = await db.collection("practicantes").aggregate([
+  {
+    $match: {
+      _id: { $gte: hace30Dias }
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      total: { $sum: 1 }
+    }
+  }
+]).toArray();
+
+// Preparar datos para gráficos
+const estadosData = estadosPracticantes.reduce((acc, curr) => {
+  acc[curr._id] = curr.count;
+  return acc;
+}, {});
+
+const mesesLabels = registrosPorMes.map(r => {
+  const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  return `${meses[r._id.mes - 1]} ${r._id.año}`;
+});
+const mesesData = registrosPorMes.map(r => r.count);
+
+const programasLabels = programas.map(p => p._id || 'Sin programa');
+const programasData = programas.map(p => p.total);
+
+const modalidadesLabels = modalidades.map(m => m._id);
+const modalidadesData = modalidades.map(m => m.count);
+
+const herramientasLabels = herramientas.slice(0, 8).map(h => h._id);
+const herramientasData = herramientas.slice(0, 8).map(h => h.count);
+
+const sectoresLabels = sectores.map(s => s._id || 'Sin sector');
+const sectoresData = sectores.map(s => s.totalPracticantes);
+
+// Estadísticas calculadas
+const pendientes = estadosData['pendiente'] || 0;
+const revisando = estadosData['revisando'] || 0;
+const finalizados = estadosData['finalizado'] || 0;
+const rechazados = estadosData['rechazado'] || 0;
+
+const tasaFinalizacion = totalPracticantes > 0 ? Math.round((finalizados / totalPracticantes) * 100) : 0;
+const activosRecientes = actividadReciente[0]?.total || 0;
+
+const conExperiencia = experienciaLaboral.find(e => e._id === true)?.count || 0;
+const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0;
+---
+
+<AdminLayout title="Estadísticas | FESC">
+  
+  <div class="space-y-8">
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Estadísticas Detalladas FESC</h1>
+      <p class="text-gray-600">
+        Análisis completo de practicantes, empresas y tendencias en la plataforma
+      </p>
+    </div>
+
+    <!-- Métricas Generales -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Practicantes</p>
+            <p class="text-3xl font-bold text-blue-600">{totalPracticantes}</p>
+          </div>
+          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Empresas Aliadas</p>
+            <p class="text-3xl font-bold text-green-600">{totalEmpresas}</p>
+          </div>
+          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Tasa Finalización</p>
+            <p class="text-3xl font-bold text-purple-600">{tasaFinalizacion}%</p>
+          </div>
+          <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Pendientes</p>
+            <p class="text-3xl font-bold text-orange-600">{pendientes}</p>
+          </div>
+          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Nuevos (30d)</p>
+            <p class="text-3xl font-bold text-indigo-600">{activosRecientes}</p>
+          </div>
+          <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos Principales -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Gráfico de Estados de Practicantes (Pie Chart) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Estados de Practicantes</h3>
+        <div class="h-80 flex items-center justify-center">
+          <canvas id="estadosChart" style="max-height: 300px;"></canvas>
+          <div id="estadosLoading" class="text-gray-500">Cargando gráfico...</div>
+        </div>
+      </div>
+
+      <!-- Gráfico de Registros por Mes (Line Chart) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Tendencia de Registros (12 meses)</h3>
+        <div class="h-80">
+          <canvas id="tendenciaChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos de Distribución -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Distribución por Programas (Bar Chart) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Distribución por Programas Académicos</h3>
+        <div class="h-80">
+          <canvas id="programasChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Modalidades (Doughnut Chart) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Modalidades de Estudio</h3>
+        <div class="h-80">
+          <canvas id="modalidadesChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Herramientas y Sectores -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Top Herramientas (Horizontal Bar) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Herramientas Más Utilizadas</h3>
+        <div class="h-80">
+          <canvas id="herramientasChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Sectores Empresariales (Polar Area) -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Distribución por Sectores</h3>
+        <div class="h-80">
+          <canvas id="sectoresChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Análisis Adicional -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Experiencia Laboral -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Experiencia Laboral Previa</h3>
+        <div class="h-60">
+          <canvas id="experienciaChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Ciclos Académicos -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Distribución por Ciclo</h3>
+        <div class="h-60">
+          <canvas id="ciclosChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Estados de Prácticas -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Estados de Prácticas Empresariales</h3>
+        <div class="h-60">
+          <canvas id="estadosPracticasChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Empresas -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h3 class="text-xl font-semibold text-gray-800 mb-6">Top Empresas por Practicantes</h3>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="text-left py-3 px-4 font-medium text-gray-600">Ranking</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-600">Empresa</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-600">Sector</th>
+              <th class="text-center py-3 px-4 font-medium text-gray-600">Total</th>
+              <th class="text-center py-3 px-4 font-medium text-gray-600">Activos</th>
+              <th class="text-center py-3 px-4 font-medium text-gray-600">Completados</th>
+              <th class="text-center py-3 px-4 font-medium text-gray-600">Tasa Éxito</th>
+            </tr>
+          </thead>
+          <tbody>
+            {empresasTop.map((empresa, index) => (
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-3 px-4">
+                  <div class={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                    index === 0 ? 'bg-yellow-500' :
+                    index === 1 ? 'bg-gray-400' :
+                    index === 2 ? 'bg-amber-600' :
+                    'bg-blue-500'
+                  }`}>
+                    {index + 1}
+                  </div>
+                </td>
+                <td class="py-3 px-4 font-medium text-gray-800">{empresa.nombre}</td>
+                <td class="py-3 px-4 text-gray-600">{empresa.sector || 'N/A'}</td>
+                <td class="text-center py-3 px-4 font-semibold text-blue-600">{empresa.totalPracticantes}</td>
+                <td class="text-center py-3 px-4 font-semibold text-green-600">{empresa.practicantesActivos}</td>
+                <td class="text-center py-3 px-4 font-semibold text-purple-600">{empresa.practicantesCompletados}</td>
+                <td class="text-center py-3 px-4">
+                  <span class={`px-2 py-1 rounded-full text-xs font-medium ${
+                    (empresa.totalPracticantes > 0 ? (empresa.practicantesCompletados / empresa.totalPracticantes) * 100 : 0) >= 80 ? 'bg-green-100 text-green-800' :
+                    (empresa.totalPracticantes > 0 ? (empresa.practicantesCompletados / empresa.totalPracticantes) * 100 : 0) >= 60 ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {empresa.totalPracticantes > 0 ? Math.round((empresa.practicantesCompletados / empresa.totalPracticantes) * 100) : 0}%
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+  
+  <script>
+    // Esperar a que Chart.js se cargue completamente
+    window.addEventListener('load', function() {
+      // Verificar si Chart está disponible
+      if (typeof Chart === 'undefined') {
+        console.error('Chart.js no se cargó correctamente');
+        return;
+      }
+
+      // Configuración global de Chart.js
+      Chart.defaults.font.family = 'system-ui, -apple-system, sans-serif';
+      Chart.defaults.color = '#6B7280';
+
+      // Función para ocultar indicadores de carga
+      function hideLoading(loadingId) {
+        const loadingEl = document.getElementById(loadingId);
+        if (loadingEl) loadingEl.style.display = 'none';
+      }
+
+      // 1. Gráfico de Estados de Practicantes (Pie)
+      try {
+        const estadosCtx = document.getElementById('estadosChart');
+        if (estadosCtx) {
+          hideLoading('estadosLoading');
+          new Chart(estadosCtx.getContext('2d'), {
+            type: 'pie',
+            data: {
+              labels: ['Pendiente', 'En Revisión', 'Finalizado', 'Rechazado'],
+              datasets: [{
+                data: [{pendientes}, {revisando}, {finalizados}, {rechazados}],
+                backgroundColor: ['#F59E0B', '#3B82F6', '#10B981', '#EF4444'],
+                borderWidth: 2,
+                borderColor: '#fff'
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: { padding: 20 }
+                }
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error creando gráfico de estados:', error);
+      }
+
+    // 2. Gráfico de Tendencia de Registros (Line)
+    const tendenciaCtx = document.getElementById('tendenciaChart').getContext('2d');
+    new Chart(tendenciaCtx, {
+      type: 'line',
+      data: {
+        labels: {JSON.stringify(mesesLabels)},
+        datasets: [{
+          label: 'Registros por Mes',
+          data: {JSON.stringify(mesesData)},
+          borderColor: '#3B82F6',
+          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#3B82F6',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: '#F3F4F6' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    // 3. Gráfico de Programas (Bar)
+    const programasCtx = document.getElementById('programasChart').getContext('2d');
+    new Chart(programasCtx, {
+      type: 'bar',
+      data: {
+        labels: {JSON.stringify(programasLabels)},
+        datasets: [{
+          label: 'Estudiantes',
+          data: {JSON.stringify(programasData)},
+          backgroundColor: [
+            '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', 
+            '#EF4444', '#06B6D4', '#84CC16', '#F97316'
+          ],
+          borderRadius: 8,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: '#F3F4F6' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    // 4. Modalidades (Doughnut)
+    const modalidadesCtx = document.getElementById('modalidadesChart').getContext('2d');
+    new Chart(modalidadesCtx, {
+      type: 'doughnut',
+      data: {
+        labels: {JSON.stringify(modalidadesLabels)},
+        datasets: [{
+          data: {JSON.stringify(modalidadesData)},
+          backgroundColor: [
+            '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', 
+            '#EF4444', '#06B6D4'
+          ],
+          borderWidth: 3,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { padding: 20 }
+          }
+        }
+      }
+    });
+
+    // 5. Herramientas (Horizontal Bar)
+    const herramientasCtx = document.getElementById('herramientasChart').getContext('2d');
+    new Chart(herramientasCtx, {
+      type: 'bar',
+      data: {
+        labels: {JSON.stringify(herramientasLabels)},
+        datasets: [{
+          label: 'Menciones',
+          data: {JSON.stringify(herramientasData)},
+          backgroundColor: '#10B981',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        scales: {
+          x: {
+            beginAtZero: true,
+            grid: { color: '#F3F4F6' }
+          },
+          y: {
+            grid: { display: false }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+
+    // 6. Sectores (Polar Area)
+    const sectoresCtx = document.getElementById('sectoresChart').getContext('2d');
+    new Chart(sectoresCtx, {
+      type: 'polarArea',
+      data: {
+        labels: {JSON.stringify(sectoresLabels)},
+        datasets: [{
+          data: {JSON.stringify(sectoresData)},
+          backgroundColor: [
+            'rgba(59, 130, 246, 0.7)', 'rgba(16, 185, 129, 0.7)', 
+            'rgba(139, 92, 246, 0.7)', 'rgba(245, 158, 11, 0.7)',
+            'rgba(239, 68, 68, 0.7)', 'rgba(6, 182, 212, 0.7)'
+          ],
+          borderColor: [
+            '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#06B6D4'
+          ],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { padding: 15 }
+          }
+        }
+      }
+    });
+
+    // 7. Experiencia Laboral
+    const experienciaCtx = document.getElementById('experienciaChart').getContext('2d');
+    new Chart(experienciaCtx, {
+      type: 'pie',
+      data: {
+        labels: ['Con Experiencia', 'Sin Experiencia'],
+        datasets: [{
+          data: [{conExperiencia}, {sinExperiencia}],
+          backgroundColor: ['#10B981', '#F59E0B'],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { padding: 15 }
+          }
+        }
+      }
+    });
+
+    // 8. Ciclos Académicos
+    const ciclosCtx = document.getElementById('ciclosChart').getContext('2d');
+    const ciclosLabels = {JSON.stringify(ciclos.map(c => c._id || 'Sin definir'))};
+    const ciclosData = {JSON.stringify(ciclos.map(c => c.count))};
+    new Chart(ciclosCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ciclosLabels,
+        datasets: [{
+          data: ciclosData,
+          backgroundColor: ['#8B5CF6', '#3B82F6'],
+          borderWidth: 3,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '50%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { padding: 15 }
+          }
+        }
+      }
+    });
+
+    // 9. Estados de Prácticas
+    const estadosPracticasCtx = document.getElementById('estadosPracticasChart').getContext('2d');
+    const estadosPracticasLabels = {JSON.stringify(estadosPracticas.map(e => e._id || 'Sin estado'))};
+    const estadosPracticasData = {JSON.stringify(estadosPracticas.map(e => e.count))};
+    new Chart(estadosPracticasCtx, {
+      type: 'bar',
+      data: {
+        labels: estadosPracticasLabels,
+        datasets: [{
+          label: 'Prácticas',
+          data: estadosPracticasData,
+          backgroundColor: ['#F59E0B', '#10B981', '#3B82F6'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: '#F3F4F6' }
+          },
+          x: {
+            grid: { display: false }
+          }
+        },
+        plugins: {
+          legend: { display: false }
+        }
+      }
+    });
+    
+    }); // Fin del event listener 'load'
+  </script>
+</AdminLayout>

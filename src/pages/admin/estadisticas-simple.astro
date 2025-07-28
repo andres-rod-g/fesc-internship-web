@@ -1,0 +1,220 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+
+const db = await connectDB();
+
+// Estadísticas básicas
+const totalPracticantes = await db.collection("practicantes").countDocuments();
+const totalEmpresas = await db.collection("empresas").countDocuments();
+
+const estadosPracticantes = await db.collection("practicantes").aggregate([
+  { $group: { _id: "$estado", count: { $sum: 1 } } }
+]).toArray();
+
+const programas = await db.collection("practicantes").aggregate([
+  { $group: { _id: "$programa", total: { $sum: 1 } } },
+  { $sort: { total: -1 } },
+  { $limit: 6 }
+]).toArray();
+
+// Preparar datos
+const estadosData = estadosPracticantes.reduce((acc, curr) => {
+  acc[curr._id] = curr.count;
+  return acc;
+}, {});
+
+const pendientes = estadosData['pendiente'] || 0;
+const revisando = estadosData['revisando'] || 0;
+const finalizados = estadosData['finalizado'] || 0;
+const rechazados = estadosData['rechazado'] || 0;
+---
+
+<AdminLayout title="Estadísticas | FESC">
+  <div class="space-y-8">
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Estadísticas FESC</h1>
+      <p class="text-gray-600">Panel de métricas y análisis de la plataforma</p>
+    </div>
+
+    <!-- Métricas Generales -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Practicantes</p>
+            <p class="text-3xl font-bold text-blue-600">{totalPracticantes}</p>
+          </div>
+          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Empresas Aliadas</p>
+            <p class="text-3xl font-bold text-green-600">{totalEmpresas}</p>
+          </div>
+          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Finalizados</p>
+            <p class="text-3xl font-bold text-purple-600">{finalizados}</p>
+          </div>
+          <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Pendientes</p>
+            <p class="text-3xl font-bold text-orange-600">{pendientes}</p>
+          </div>
+          <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Estados -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Estados de Practicantes</h3>
+        <div class="h-80">
+          <canvas id="estadosChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Programas -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Top Programas Académicos</h3>
+        <div class="h-80">
+          <canvas id="programasChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" is:inline></script>
+  <script client:load>
+    // Esperar a que Chart.js esté disponible
+    function initCharts() {
+      if (typeof Chart === 'undefined') {
+        setTimeout(initCharts, 100);
+        return;
+      }
+
+      // Estados Chart
+      const estadosCtx = document.getElementById('estadosChart');
+      if (estadosCtx) {
+        new Chart(estadosCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Pendiente', 'En Revisión', 'Finalizado', 'Rechazado'],
+            datasets: [{
+              data: [{pendientes}, {revisando}, {finalizados}, {rechazados}],
+              backgroundColor: ['#F59E0B', '#3B82F6', '#10B981', '#EF4444'],
+              borderWidth: 2,
+              borderColor: '#fff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom'
+              }
+            }
+          }
+        });
+      }
+
+      // Programas Chart
+      const programasCtx = document.getElementById('programasChart');
+      if (programasCtx) {
+        new Chart(programasCtx, {
+          type: 'bar',
+          data: {
+            labels: {JSON.stringify(programas.map(p => p._id || 'Sin programa'))},
+            datasets: [{
+              label: 'Estudiantes',
+              data: {JSON.stringify(programas.map(p => p.total))},
+              backgroundColor: ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#06B6D4'],
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: '#F3F4F6'
+                }
+              },
+              x: {
+                grid: {
+                  display: false
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                display: false
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Inicializar cuando el DOM esté listo
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initCharts);
+    } else {
+      initCharts();
+    }
+  </script>
+</AdminLayout>

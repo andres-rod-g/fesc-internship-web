@@ -1,0 +1,710 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+
+const { id } = Astro.params;
+const db = await connectDB();
+const practicante = await db.collection("practicantes").findOne({ _id: new ObjectId(id) });
+
+if (!practicante) {
+  return Astro.redirect("/admin/practicantes");
+}
+---
+<AdminLayout title={`${practicante.nombres} ${practicante.apellidos} | FESC`}>
+  <div class="max-w-4xl mx-auto space-y-6">
+    <!-- Navegación -->
+    <div class="mb-6">
+      <nav class="flex items-center space-x-2 text-sm text-gray-600">
+        <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+        <span>/</span>
+        <a href="/admin/practicantes" class="hover:text-accent transition-colors">Practicantes</a>
+        <span>/</span>
+        <span class="text-gray-800">{practicante.nombres} {practicante.apellidos}</span>
+      </nav>
+    </div>
+
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-300">
+            {practicante.foto ? (
+              <img 
+                src={`/api/fotos/${practicante._id}`} 
+                alt={`${practicante.nombres} ${practicante.apellidos}`}
+                class="w-full h-full object-cover"
+              />
+            ) : (
+              <div class="w-full h-full bg-accent flex items-center justify-center">
+                <span class="text-white text-2xl font-bold">{practicante.nombres?.charAt(0)}</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">{practicante.nombres} {practicante.apellidos}</h1>
+            <p class="text-gray-600">{practicante.programa} - {practicante.ciclo}</p>
+            <p class="text-sm text-gray-500">{practicante.tipo_documento}: {practicante.numero_documento}</p>
+            {practicante.modalidad && practicante.modalidad.length > 0 && (
+              <p class="text-sm text-gray-500">Modalidad: {practicante.modalidad.join(', ')}</p>
+            )}
+          </div>
+        </div>
+        <div class="text-right">
+          <span class={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full 
+            ${practicante.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' : ''}
+            ${practicante.estado === 'revisando' ? 'bg-blue-100 text-blue-800' : ''}
+            ${practicante.estado === 'finalizado' ? 'bg-green-100 text-green-800' : ''}
+            ${practicante.estado === 'rechazado' ? 'bg-red-100 text-red-800' : ''}
+          `}>
+            {practicante.estado === 'pendiente' ? 'Pendiente' : 
+             practicante.estado === 'revisando' ? 'En Revisión' : 
+             practicante.estado === 'finalizado' ? 'Finalizado' : 
+             practicante.estado === 'rechazado' ? 'Rechazado' : practicante.estado}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Información Personal -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Información Personal</h2>
+      
+      <!-- Foto Personal -->
+      {practicante.foto && (
+        <div class="mb-6 flex justify-center">
+          <div class="w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-300">
+            <img 
+              src={`/api/fotos/${practicante._id}`} 
+              alt={`${practicante.nombres} ${practicante.apellidos}`}
+              class="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      )}
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Fecha de Nacimiento</label>
+          <p class="text-gray-800">{practicante.fecha_nacimiento || 'No especificada'}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Lugar de Nacimiento</label>
+          <p class="text-gray-800">{practicante.lugar_nacimiento || 'No especificado'}</p>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-500">Dirección</label>
+          <p class="text-gray-800">{practicante.direccion_residencia || 'No especificada'}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Teléfono Fijo</label>
+          <p class="text-gray-800">{practicante.telefono_fijo || 'No especificado'}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Teléfono Celular</label>
+          <p class="text-gray-800">{practicante.telefono_celular || 'No especificado'}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Correo Institucional</label>
+          <p class="text-gray-800">{practicante.correo_institucional}</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-500">Correo Personal</label>
+          <p class="text-gray-800">{practicante.correo_personal || 'No especificado'}</p>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium text-gray-500">Estado Laboral</label>
+          <div class="mt-1">
+            {practicante.estado_laboral ? (
+              <span class={`px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full 
+                ${practicante.estado_laboral === 'seeking_internship' ? 'bg-blue-100 text-blue-800' : ''}
+                ${practicante.estado_laboral === 'working' ? 'bg-green-100 text-green-800' : ''}
+                ${practicante.estado_laboral === 'entrepreneur' ? 'bg-purple-100 text-purple-800' : ''}
+              `}>
+                {practicante.estado_laboral === 'seeking_internship' ? 'Busca prácticas profesionales' : 
+                 practicante.estado_laboral === 'working' ? 'Actualmente trabaja' : 
+                 practicante.estado_laboral === 'entrepreneur' ? 'Tiene emprendimiento propio' : practicante.estado_laboral}
+              </span>
+            ) : (
+              <span class="text-gray-500">No especificado</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Información Académica -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Información Académica</h2>
+      {practicante.informacion_academica?.length > 0 ? (
+        <div class="space-y-4">
+          {practicante.informacion_academica.map((edu, index) => (
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Tipo</label>
+                  <p class="text-gray-800">{edu.tipo}</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Institución</label>
+                  <p class="text-gray-800">{edu.institucion}</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Título</label>
+                  <p class="text-gray-800">{edu.titulo}</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Año de Finalización</label>
+                  <p class="text-gray-800">{edu.anio_finalizacion}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p class="text-gray-500">No se ha registrado información académica.</p>
+      )}
+    </div>
+
+    <!-- Perfil Profesional -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Perfil Profesional</h2>
+      <p class="text-gray-800 whitespace-pre-wrap">{practicante.perfil_profesional || 'No especificado'}</p>
+    </div>
+
+    <!-- Herramientas -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Herramientas</h2>
+      {practicante.herramientas?.length > 0 ? (
+        <div class="flex flex-wrap gap-2">
+          {practicante.herramientas.map((tool) => (
+            <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">{tool}</span>
+          ))}
+        </div>
+      ) : (
+        <p class="text-gray-500">No se han registrado herramientas.</p>
+      )}
+    </div>
+
+    <!-- Experiencia Laboral -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Experiencia Laboral</h2>
+      {practicante.experiencia_laboral?.length > 0 ? (
+        <div class="space-y-6">
+          {practicante.experiencia_laboral.map((exp, index) => (
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Empresa</label>
+                  <p class="text-gray-800 font-medium">{exp.empresa}</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Cargo</label>
+                  <p class="text-gray-800">{exp.cargo}</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Fecha Inicio</label>
+                  <p class="text-gray-800">{exp.fecha_inicio}</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Fecha Fin</label>
+                  <p class="text-gray-800">{exp.fecha_fin || 'Actualidad'}</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Jefe Inmediato</label>
+                  <p class="text-gray-800">{exp.nombre_jefe || 'No especificado'}</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Teléfono Empresa</label>
+                  <p class="text-gray-800">{exp.telefono_empresa || 'No especificado'}</p>
+                </div>
+              </div>
+              {exp.funciones && (
+                <div class="mb-4">
+                  <label class="block text-sm font-medium text-gray-500">Funciones</label>
+                  <p class="text-gray-800 whitespace-pre-wrap">{exp.funciones}</p>
+                </div>
+              )}
+              {exp.logros && (
+                <div>
+                  <label class="block text-sm font-medium text-gray-500">Logros</label>
+                  <p class="text-gray-800 whitespace-pre-wrap">{exp.logros}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p class="text-gray-500">No se ha registrado experiencia laboral.</p>
+      )}
+    </div>
+
+    <!-- Firma Digital -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Firma Digital</h2>
+      {practicante.firma_png ? (
+        <div class="max-w-md">
+          <img 
+            src={`/api/signatures/${practicante._id}`} 
+            alt="Firma digital" 
+            class="border border-gray-300 rounded-lg p-4 bg-white"
+          />
+        </div>
+      ) : (
+        <p class="text-gray-500">No se ha registrado firma digital.</p>
+      )}
+    </div>
+
+    <!-- Cambiar Estado -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Cambiar Estado</h2>
+      <div class="flex items-center gap-4">
+        <div class="flex-1">
+          <select 
+            id="estado-select"
+            class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-accent focus:border-accent sm:text-sm rounded-md"
+            data-id={practicante._id}
+            data-current-status={practicante.estado}
+          >
+            <option value="pendiente" selected={practicante.estado === 'pendiente'}>Pendiente</option>
+            <option value="revisando" selected={practicante.estado === 'revisando'}>En Revisión</option>
+            <option value="finalizado" selected={practicante.estado === 'finalizado'}>Finalizado</option>
+            <option value="rechazado" selected={practicante.estado === 'rechazado'}>Rechazado</option>
+          </select>
+        </div>
+        <button 
+          id="cambiar-estado-btn"
+          class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          onclick="cambiarEstado()"
+        >
+          Cambiar Estado
+        </button>
+      </div>
+    </div>
+
+    <!-- Asignación de Empresa -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Asignación de Empresa</h2>
+      <div id="asignacion-empresa">
+        <!-- Se cargará dinámicamente -->
+      </div>
+    </div>
+
+    <!-- Notas del Practicante -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Notas y Seguimiento</h2>
+      
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Agregar nueva nota
+        </label>
+        <textarea 
+          id="nueva-nota" 
+          rows="3" 
+          class="w-full border-gray-300 rounded-md shadow-sm focus:border-accent focus:ring-accent"
+          placeholder="Describe el estado actual, qué ha hecho el practicante, qué le falta por hacer, etc."
+        ></textarea>
+        <button 
+          class="mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          onclick="agregarNota()"
+        >
+          Agregar Nota
+        </button>
+      </div>
+      
+      <div id="lista-notas">
+        <!-- Se cargará dinámicamente -->
+      </div>
+    </div>
+
+    <!-- Acciones -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Acciones</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <a href={`/admin/practicantes`} class="btn-secondary text-center">
+          Volver a la Lista
+        </a>
+        <button 
+          class="btn-primary"
+          onclick="editarPracticante()"
+        >
+          Editar Información
+        </button>
+        <button 
+          class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          onclick="descargarFormato()"
+        >
+          Descargar Formato con Plantilla
+        </button>
+        <button 
+          class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+          onclick="generarPDF()"
+        >
+          Generar PDF
+        </button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script is:inline>
+  async function cambiarEstado() {
+    const select = document.getElementById('estado-select');
+    const id = select.dataset.id;
+    const newStatus = select.value;
+    const currentStatus = select.dataset.currentStatus;
+
+    if (newStatus === currentStatus) {
+      alert('El estado seleccionado es el mismo que el actual.');
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de cambiar el estado a "${newStatus}"?`)) {
+      select.value = currentStatus;
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/practicantes/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ estado: newStatus }),
+      });
+
+      if (res.ok) {
+        alert('Estado actualizado correctamente.');
+        window.location.reload();
+      } else {
+        const data = await res.json();
+        alert(`Error al actualizar estado: ${data.error || 'Error desconocido'}`);
+        select.value = currentStatus;
+      }
+    } catch (error) {
+      console.error('Error de conexión:', error);
+      alert('Error de conexión al servidor.');
+      select.value = currentStatus;
+    }
+  }
+
+  function editarPracticante() {
+    const id = document.getElementById('estado-select').dataset.id;
+    window.location.href = `/admin/practicantes/${id}/editar`;
+  }
+
+  function descargarFormato() {
+    const id = document.getElementById('estado-select').dataset.id;
+    window.open(`/api/practicantes/${id}/cv-html`, '_blank');
+  }
+
+  function generarPDF() {
+    const id = document.getElementById('estado-select').dataset.id;
+    window.open(`/api/practicantes/${id}/pdf`, '_blank');
+  }
+
+  // Cargar información de asignación de empresa
+  async function cargarAsignacionEmpresa() {
+    const id = document.getElementById('estado-select').dataset.id;
+    
+    try {
+      const response = await fetch(`/api/practicantes/${id}/empresa`);
+      const data = await response.json();
+      
+      const container = document.getElementById('asignacion-empresa');
+      
+      if (data.empresa_asignada) {
+        container.innerHTML = `
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-green-800">${data.empresa_asignada.nombre}</h3>
+                <p class="text-sm text-green-600">Estado: ${data.estado_practica}</p>
+                <p class="text-xs text-green-500">Asignado el: ${new Date(data.fecha_asignacion).toLocaleDateString('es-ES')}</p>
+              </div>
+              <button 
+                class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600"
+                onclick="desasignarEmpresa('${data.empresa_asignada._id}', '${id}')"
+              >
+                Desasignar
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        const empresasResponse = await fetch('/api/empresas');
+        const empresas = await empresasResponse.json();
+        
+        container.innerHTML = `
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <p class="text-yellow-800 mb-3">Este practicante no está asignado a ninguna empresa</p>
+            <div class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Empresa *</label>
+                  <select id="empresa-select" class="w-full border-gray-300 rounded-md">
+                    <option value="">Selecciona una empresa</option>
+                    ${empresas.map(emp => `<option value="${emp._id}">${emp.nombre}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Estado de Práctica *</label>
+                  <select id="estado-practica-select" class="w-full border-gray-300 rounded-md">
+                    <option value="pendiente">Pendiente</option>
+                    <option value="activo">Activo</option>
+                    <option value="completado">Completado</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Salario Mensual ($)</label>
+                <input type="number" id="salario-mensual" class="w-full border-gray-300 rounded-md" placeholder="0" min="0">
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Funciones del Practicante</label>
+                <textarea id="funciones-practicante" rows="3" class="w-full border-gray-300 rounded-md resize-none" placeholder="Describe las funciones que realizará el estudiante..."></textarea>
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Supervisor - Nombre</label>
+                  <input type="text" id="supervisor-nombre" class="w-full border-gray-300 rounded-md" placeholder="Nombre del supervisor">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Supervisor - Cargo</label>
+                  <input type="text" id="supervisor-cargo" class="w-full border-gray-300 rounded-md" placeholder="Cargo del supervisor">
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Supervisor - Teléfono</label>
+                  <input type="tel" id="supervisor-telefono" class="w-full border-gray-300 rounded-md" placeholder="Teléfono del supervisor">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Supervisor - Email</label>
+                  <input type="email" id="supervisor-email" class="w-full border-gray-300 rounded-md" placeholder="Email del supervisor">
+                </div>
+              </div>
+              
+              <div class="flex justify-end">
+                <button 
+                  class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+                  onclick="asignarEmpresa()"
+                >
+                  Asignar Empresa
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('Error al cargar asignación:', error);
+      document.getElementById('asignacion-empresa').innerHTML = 
+        '<p class="text-red-600">Error al cargar información de empresa</p>';
+    }
+  }
+
+  async function asignarEmpresa() {
+    const practicanteId = document.getElementById('estado-select').dataset.id;
+    const empresaId = document.getElementById('empresa-select').value;
+    const estadoPractica = document.getElementById('estado-practica-select').value;
+    const salarioMensual = document.getElementById('salario-mensual').value;
+    const funcionesPracticante = document.getElementById('funciones-practicante').value;
+    const supervisorNombre = document.getElementById('supervisor-nombre').value;
+    const supervisorCargo = document.getElementById('supervisor-cargo').value;
+    const supervisorTelefono = document.getElementById('supervisor-telefono').value;
+    const supervisorEmail = document.getElementById('supervisor-email').value;
+    
+    if (!empresaId) {
+      alert('Por favor selecciona una empresa');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/empresas/${empresaId}/asignar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          practicante_id: practicanteId,
+          estado_practica: estadoPractica,
+          salario_mensual: salarioMensual ? parseFloat(salarioMensual) : 0,
+          funciones_practicante: funcionesPracticante,
+          supervisor_nombre: supervisorNombre,
+          supervisor_cargo: supervisorCargo,
+          supervisor_telefono: supervisorTelefono,
+          supervisor_email: supervisorEmail
+        }),
+      });
+      
+      if (response.ok) {
+        alert('Practicante asignado exitosamente');
+        cargarAsignacionEmpresa(); // Recargar la sección
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  }
+
+  async function desasignarEmpresa(empresaId, practicanteId) {
+    if (!confirm('¿Estás seguro de que deseas desasignar este practicante de la empresa?')) return;
+    
+    try {
+      const response = await fetch(`/api/empresas/${empresaId}/desasignar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          practicante_id: practicanteId
+        }),
+      });
+      
+      if (response.ok) {
+        alert('Practicante desasignado exitosamente');
+        cargarAsignacionEmpresa(); // Recargar la sección
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  }
+
+  // Cargar información al cargar la página
+  document.addEventListener('DOMContentLoaded', function() {
+    cargarAsignacionEmpresa();
+    cargarNotas();
+  });
+
+  // Funciones para manejo de notas
+  async function cargarNotas() {
+    const id = document.getElementById('estado-select').dataset.id;
+    
+    try {
+      const response = await fetch(`/api/practicantes/${id}/notas`);
+      const data = await response.json();
+      
+      const container = document.getElementById('lista-notas');
+      
+      if (data.notas && data.notas.length > 0) {
+        container.innerHTML = `
+          <div class="space-y-3">
+            <h3 class="font-medium text-gray-800">Historial de Notas</h3>
+            ${data.notas.map(nota => `
+              <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div class="flex justify-between items-start mb-2">
+                  <span class="text-sm font-medium text-gray-600">
+                    ${new Date(nota.fecha).toLocaleDateString('es-ES')} a las ${new Date(nota.fecha).toLocaleTimeString('es-ES')}
+                  </span>
+                  <button 
+                    class="text-red-500 hover:text-red-700 text-sm"
+                    onclick="eliminarNota('${nota._id}')"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+                <p class="text-gray-800 whitespace-pre-wrap">${nota.contenido}</p>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        container.innerHTML = `
+          <div class="text-center py-8 text-gray-500">
+            <p>No hay notas registradas para este practicante</p>
+            <p class="text-sm">Utiliza el campo de arriba para agregar la primera nota</p>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('Error al cargar notas:', error);
+      document.getElementById('lista-notas').innerHTML = 
+        '<p class="text-red-600">Error al cargar las notas</p>';
+    }
+  }
+
+  async function agregarNota() {
+    const id = document.getElementById('estado-select').dataset.id;
+    const contenido = document.getElementById('nueva-nota').value.trim();
+    
+    if (!contenido) {
+      alert('Por favor escribe una nota antes de agregar');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/practicantes/${id}/notas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contenido: contenido
+        }),
+      });
+      
+      if (response.ok) {
+        document.getElementById('nueva-nota').value = '';
+        cargarNotas(); // Recargar las notas
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  }
+
+  async function eliminarNota(notaId) {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta nota?')) return;
+    
+    const practicanteId = document.getElementById('estado-select').dataset.id;
+    
+    try {
+      const response = await fetch(`/api/practicantes/${practicanteId}/notas/${notaId}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        cargarNotas(); // Recargar las notas
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  }
+</script>

@@ -1,0 +1,62 @@
+---
+import MainLayout from "~/layouts/MainLayout.astro";
+import { Building, Users, FileText } from "lucide-react";
+---
+<MainLayout title="Bienvenido | FESC">
+  <section class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div class="text-center max-w-4xl mx-auto px-4">
+      <div class="mb-8">
+        <div class="mx-auto w-24 h-24 bg-accent rounded-full flex items-center justify-center mb-6 shadow-xl">
+          <Building className="w-12 h-12 text-white" />
+        </div>
+        <h1 class="text-5xl font-bold mb-6 text-gray-800">
+          Plataforma <span class="text-accent">FESC</span>
+        </h1>
+        <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+          Sistema de gestión para el registro y control de practicantes en empresas externas. 
+          Una solución integral para coordinar y supervisar las prácticas profesionales.
+        </p>
+      </div>
+      
+      <div class="grid md:grid-cols-3 gap-6 mb-12">
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4 mx-auto">
+            <Users className="w-6 h-6 text-blue-600" />
+          </div>
+          <h3 class="text-lg font-semibold mb-2">Gestión de Practicantes</h3>
+          <p class="text-gray-600 text-sm">Registro completo de estudiantes y seguimiento de sus prácticas</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4 mx-auto">
+            <Building className="w-6 h-6 text-green-600" />
+          </div>
+          <h3 class="text-lg font-semibold mb-2">Control de Empresas</h3>
+          <p class="text-gray-600 text-sm">Administración de empresas colaboradoras y convenios</p>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4 mx-auto">
+            <FileText className="w-6 h-6 text-purple-600" />
+          </div>
+          <h3 class="text-lg font-semibold mb-2">Reportes y Análisis</h3>
+          <p class="text-gray-600 text-sm">Generación de reportes y estadísticas detalladas</p>
+        </div>
+      </div>
+      
+      <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <a href="/formulario" class="inline-block bg-accent text-white rounded-xl px-8 py-4 font-semibold hover:bg-red-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+            Registrarme como Practicante
+          </a>
+          <a href="/login" class="inline-block bg-gray-800 text-white rounded-xl px-8 py-4 font-semibold hover:bg-gray-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+            Panel de Administración
+          </a>
+        </div>
+        <p class="text-sm text-gray-500">
+          ¿Eres estudiante? Regístrate directamente. ¿Eres administrador? Accede al panel de control.
+        </p>
+      </div>
+    </div>
+  </section>
+</MainLayout>

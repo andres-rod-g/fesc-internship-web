@@ -1,0 +1,19 @@
+---
+import MainLayout from "~/layouts/MainLayout.astro";
+import LoginForm from "~/components/LoginForm.jsx";
+import { Lock } from "lucide-react";
+---
+<MainLayout title="Iniciar sesión | FESC">
+  <section class="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div class="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-md border border-gray-200">
+      <div class="text-center mb-8">
+        <div class="mx-auto w-16 h-16 bg-accent rounded-full flex items-center justify-center mb-4">
+          <Lock className="w-8 h-8 text-white" />
+        </div>
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">FESC</h1>
+        <p class="text-gray-600">Plataforma de Practicantes</p>
+      </div>
+      <LoginForm client:only="react" />
+    </div>
+  </section>
+</MainLayout>

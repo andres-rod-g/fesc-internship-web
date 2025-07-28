@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Hoja de Vida - {{name}} {{lastname}}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            font-size: 11pt;
+        }
+        
+        /* Estilos para tablas principales */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 10px 0;
+            border: 1px solid #000;
+        }
+        
+        td, th {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        
+        /* Estilos para imágenes */
+        .photo-placeholder {
+            width: 120px;
+            height: 150px;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f9f9f9;
+            font-size: 10px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .photo-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .signature-placeholder {
+            width: 200px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: transparent;
+            font-size: 10px;
+            text-align: center;
+            color: #666;
+            margin: 10px 0;
+        }
+        
+        .signature-placeholder img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        /* Cabecera para impresión */
+        .print-header {
+            display: none;
+        }
+        
+        /* Tabla principal que contendrá todo el documento */
+        .document-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+        
+        .document-table thead {
+            display: table-header-group;
+        }
+        
+        .document-table tbody {
+            display: table-row-group;
+        }
+
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #000;
+            margin: 0;
+        }
+
+        .header-table td {
+            border: 1px solid #000;
+            padding: 8px;
+            vertical-align: middle;
+            text-align: center;
+        }
+
+        .header-logo {
+            width: 120px;
+            text-align: center;
+            background: white;
+        }
+
+        .header-logo img {
+            width: 80px;
+            height: auto;
+        }
+
+        .header-center {
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .header-title {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .header-process {
+            font-size: 10pt;
+            margin: 2px 0;
+        }
+
+        .header-right {
+            width: 150px;
+            font-size: 10pt;
+            text-align: left;
+        }
+
+        .header-right div {
+            border-bottom: 1px solid #000;
+            padding: 3px 5px;
+            margin: 0;
+        }
+
+        .header-right div:last-child {
+            border-bottom: none;
+        }
+
+        /* Estilos de impresión */
+        @media print {
+            body {
+                margin: 0;
+                padding: 15px;
+                font-size: 10pt;
+            }
+            
+            @page {
+                margin: 2cm;
+                size: A4;
+            }
+            
+            /* Hacer que la cabecera se repita en cada página */
+            .document-table thead {
+                display: table-header-group !important;
+            }
+            
+            .document-table tbody {
+                display: table-row-group !important;
+            }
+            
+            /* Evitar saltos dentro de la cabecera */
+            .document-table thead tr {
+                page-break-inside: avoid;
+                page-break-after: avoid;
+            }
+            
+            .photo-placeholder {
+                background-color: white !important;
+                color: black !important;
+            }
+            
+            .signature-placeholder {
+                background-color: transparent !important;
+                color: black !important;
+            }
+
+            /* Evitar que las tablas se dividan mal y asegurar bordes en impresión */
+            table {
+                page-break-inside: avoid;
+                border: 1px solid #000 !important;
+                border-collapse: collapse !important;
+                margin-bottom: 15px;
+            }
+            
+            /* Para tablas grandes que necesitan dividirse */
+            table.large-table {
+                page-break-inside: auto;
+            }
+            
+            /* Asegurar que todos los bordes de celdas se vean en impresión */
+            td, th {
+                border: 1px solid #000 !important;
+            }
+
+            /* Evitar huérfanos y viudas */
+            p, td {
+                orphans: 2;
+                widows: 2;
+            }
+            
+            /* Controlar saltos de página entre secciones */
+            .section-break {
+                page-break-before: auto;
+                page-break-after: avoid;
+            }
+            
+            /* Evitar saltos de página en elementos críticos */
+            .header-cell {
+                page-break-after: avoid;
+            }
+        }
+        
+        /* Estilos para texto en negrita */
+        strong, b {
+            font-weight: bold;
+        }
+        
+        /* Estilo para celdas de encabezado */
+        .header-cell {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Estructura principal con cabecera repetible -->
+<table class="document-table">
+    <thead>
+        <tr>
+            <td>
+                <table class="header-table">
+                    <tr>
+                        <td class="header-logo">
+                            <img src="fesc-logo.png" alt="FESC Logo">
+                        </td>
+                        <td class="header-center">
+                            <div class="header-title">HOJA DE VIDA PRACTICANTE</div>
+                            <div class="header-process"><strong>PROCESO:</strong> Prestación del Servicio / Extensión<br>y Proyección a la Comunidad</div>
+                        </td>
+                        <td class="header-right">
+                            <div><strong>Código:</strong> FPESF-4.2-60</div>
+                            <div><strong>Fecha:</strong> 06/11/2024</div>
+                            <div><strong>Versión:</strong> 1.0</div>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>
+                <!-- Todo el contenido del documento va aquí -->
+
+<!-- Sección 1: Información Personal -->
+<table class="section-break">
+    <tr>
+        <td colspan="3" class="header-cell"><strong>1. INFORMACIÓN PERSONAL</strong></td>
+    </tr>
+    <tr>
+        <td rowspan="7" style="width: 140px;">
+            <div class="photo-placeholder">
+                {{#if picture}}
+                <img src="data:image/jpeg;base64,{{picture}}" alt="Foto del estudiante">
+                {{else}}
+                Foto del<br>Estudiante
+                {{/if}}
+            </div>
+        </td>
+        <td colspan="2"><strong>Programa: {{program}}</strong></td>
+    </tr>
+    <tr>
+        <td><strong>Nombre: {{name}}</strong></td>
+        <td><strong>Apellidos: {{lastname}}</strong></td>
+    </tr>
+    <tr>
+        <td><strong>Documento de Identificación No:</strong><br><strong>{{doc-number}}</strong></td>
+        <td><strong>Tipo de documento:</strong> {{doc-type}}</td>
+    </tr>
+    <tr>
+        <td><strong>Fecha de Nacimiento:</strong><br>{{b-day}}</td>
+        <td><strong>Lugar de Nacimiento:</strong><br>{{b-place}}</td>
+    </tr>
+    <tr>
+        <td><strong>Dirección Residencia (Incluya Barrio):</strong><br>{{address}}</td>
+        <td><strong>Teléfono:</strong><br>{{telephone}}</td>
+    </tr>
+    <tr>
+        <td><strong>Teléfono celular:</strong><br>{{phone}}</td>
+        <td><strong>Correo electrónico (FESC):</strong><br>{{i-email}}</td>
+    </tr>
+    <tr>
+        <td colspan="2"><strong>Correo personal: {{p-email}}</strong></td>
+    </tr>
+</table>
+
+<!-- Sección 2: Información Académica -->
+<table>
+    <tr>
+        <td class="header-cell"><strong>2. INFORMACIÓN ACADÉMICA</strong></td>
+    </tr>
+    <tr>
+        <td>{{academic-info}}</td>
+    </tr>
+</table>
+
+<!-- Sección 3: Perfil Profesional -->
+<table>
+    <tr>
+        <td class="header-cell"><strong>3. PERFIL PROFESIONAL</strong></td>
+    </tr>
+    <tr>
+        <td>{{profile}}</td>
+    </tr>
+</table>
+
+<!-- Sección 4: Herramientas de Desarrollo -->
+<table>
+    <tr>
+        <td class="header-cell"><strong>4. HERRAMIENTAS DE DESARROLLO (HARDWARE – SOFTWARE)</strong></td>
+    </tr>
+    <tr>
+        <td><strong>{{tools}}</strong></td>
+    </tr>
+</table>
+
+<!-- Sección 5: Experiencia Laboral -->
+<table class="large-table section-break">
+    <tr>
+        <td class="header-cell"><strong>5. EXPERIENCIA LABORAL</strong></td>
+    </tr>
+    <tr>
+        <td><strong>{{experience}}</strong></td>
+    </tr>
+</table>
+
+<!-- Sección de Certificación -->
+<table>
+    <tr>
+        <td class="header-cell"><strong>6. CERTIFICACIÓN</strong></td>
+    </tr>
+    <tr>
+        <td>Manifiesto que la hoja de vida presentada bajo gravedad de juramento es verídica y autorizo a la entidad correspondiente a realizar consulta e indagaciones pertinentes para la corroboración de lo suministrado.</td>
+    </tr>
+</table>
+
+<!-- Sección 7: Firma -->
+<table>
+    <tr>
+        <td class="header-cell"><strong>7. FIRMA</strong></td>
+    </tr>
+    <tr>
+        <td>
+            <strong>Estudiante:</strong><br><br>
+            <div class="signature-placeholder">
+                {{#if sign-image}}
+                <img src="data:image/png;base64,{{sign-image}}" alt="Firma del estudiante">
+                {{else}}
+                Firma del<br>Estudiante
+                {{/if}}
+            </div>
+            <br>
+            <strong>FIRMA:_______________________________________________</strong><br><br>
+            C.C. <strong>{{doc-number}}</strong> DE {{doc-from}}<br><br>
+            <strong>Fecha:</strong> {{current-date}}
+        </td>
+    </tr>
+</table>
+
+                <!-- Fin del contenido del documento -->
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+</body>
+</html>

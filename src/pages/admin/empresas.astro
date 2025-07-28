@@ -1,0 +1,214 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import { connectDB } from "~/utils/db.js";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  console.log("Token inválido o no presente. Redirigiendo al login.");
+  return Astro.redirect("/login");
+}
+
+const db = await connectDB();
+const empresasCollection = db.collection("empresas");
+const practicantesCollection = db.collection("practicantes");
+
+// Obtener todas las empresas de la base de datos
+const empresas = await empresasCollection.find({}).toArray();
+const practicantes = await practicantesCollection.find({}).toArray();
+
+// Agregar información de practicantes a cada empresa
+empresas.forEach(empresa => {
+  // Obtener practicantes asignados a esta empresa
+  const practicantesAsignados = empresa.practicantes_asignados || [];
+  
+  // Obtener los datos completos de los practicantes
+  empresa.practicantes = practicantesAsignados.map(asignacion => {
+    const practicante = practicantes.find(p => p._id.toString() === asignacion.practicante_id);
+    return practicante ? { ...practicante, estado_practica: asignacion.estado_practica } : null;
+  }).filter(p => p !== null);
+  
+  // Actualizar contadores basados en los practicantes asignados
+  empresa.total_practicantes = practicantesAsignados.length;
+  empresa.activos = practicantesAsignados.filter(p => p.estado_practica === 'activo').length;
+  empresa.completados = practicantesAsignados.filter(p => p.estado_practica === 'completado').length;
+  empresa.pendientes = practicantesAsignados.filter(p => p.estado_practica === 'pendiente').length;
+});
+---
+<AdminLayout title="Empresas | FESC">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+      <div>
+        <nav class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+          <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+          <span>/</span>
+          <span class="text-gray-800">Empresas</span>
+        </nav>
+        <h1 class="text-3xl font-bold text-gray-800">Gestión de Empresas</h1>
+        <p class="text-gray-600 mt-1">Administra las empresas colaboradoras y sus practicantes</p>
+      </div>
+      <a href="/admin/empresas/nueva" class="bg-accent text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        Nueva Empresa
+      </a>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Empresas</p>
+            <p class="text-3xl font-bold text-gray-800">{empresas.length}</p>
+          </div>
+          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Empresas Activas</p>
+            <p class="text-3xl font-bold text-green-600">{empresas.filter(e => e.activos > 0).length}</p>
+          </div>
+          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Practicantes</p>
+            <p class="text-3xl font-bold text-purple-600">{practicantes.length}</p>
+          </div>
+          <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lista de Empresas -->
+    {empresas.length === 0 ? (
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-800 mb-2">No hay empresas registradas</h3>
+        <p class="text-gray-600 mb-4">Las empresas aparecerán automáticamente cuando se registren practicantes</p>
+        <a href="/admin/nuevo-practicante" class="bg-accent text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+          Registrar Primer Practicante
+        </a>
+      </div>
+    ) : (
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {empresas.map((empresa) => (
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer" onclick={`window.location.href='/admin/empresas/${empresa._id || empresa.nombre.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}'`}>
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <h3 class="text-xl font-semibold text-gray-800 hover:text-accent transition-colors">{empresa.nombre}</h3>
+                <p class="text-gray-600 text-sm mt-1">{empresa.practicantes.length} practicantes total</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                  {empresa.activos > 0 ? 'Activa' : 'Inactiva'}
+                </span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 mb-6">
+              <div class="text-center">
+                <div class="text-2xl font-bold text-blue-600">{empresa.activos}</div>
+                <div class="text-xs text-gray-500">Activos</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-green-600">{empresa.completados}</div>
+                <div class="text-xs text-gray-500">Completados</div>
+              </div>
+              <div class="text-center">
+                <div class="text-2xl font-bold text-yellow-600">{empresa.pendientes}</div>
+                <div class="text-xs text-gray-500">Pendientes</div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <h4 class="font-medium text-gray-800 text-sm">Practicantes Recientes</h4>
+              {empresa.practicantes.slice(0, 3).map((practicante) => (
+                <div class="flex items-center justify-between py-2">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-accent rounded-full flex items-center justify-center">
+                      <span class="text-white text-xs font-medium">{practicante.nombres?.charAt(0) || 'P'}</span>
+                    </div>
+                    <div>
+                      <p class="text-sm font-medium text-gray-800">{practicante.nombres} {practicante.apellidos}</p>
+                      <p class="text-xs text-gray-500">{practicante.programa || 'Sin programa'}</p>
+                    </div>
+                  </div>
+                  <span class={`px-2 py-1 text-xs rounded-full font-medium
+                    ${practicante.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' : ''}
+                    ${practicante.estado === 'revisando' ? 'bg-blue-100 text-blue-800' : ''}
+                    ${practicante.estado === 'finalizado' ? 'bg-green-100 text-green-800' : ''}
+                    ${practicante.estado === 'rechazado' ? 'bg-red-100 text-red-800' : ''}
+                  `}>
+                    {practicante.estado === 'pendiente' ? 'Pendiente' : 
+                     practicante.estado === 'revisando' ? 'Activo' : 
+                     practicante.estado === 'finalizado' ? 'Completado' : 
+                     practicante.estado === 'rechazado' ? 'Rechazado' : practicante.estado}
+                  </span>
+                </div>
+              ))}
+              
+              {empresa.practicantes.length > 3 && (
+                <div class="text-center pt-2">
+                  <button class="text-accent text-sm hover:text-red-700 transition-colors">
+                    Ver {empresa.practicantes.length - 3} más
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div class="mt-6 pt-4 border-t border-gray-200">
+              <div class="flex justify-between items-center">
+                <button class="text-gray-600 text-sm hover:text-gray-800 transition-colors">
+                  Ver detalles
+                </button>
+                <div class="flex gap-2">
+                  <button class="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 transition-colors">
+                    Editar
+                  </button>
+                  <button class="px-3 py-1 bg-accent text-white text-sm rounded hover:bg-red-700 transition-colors">
+                    Contactar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</AdminLayout>
