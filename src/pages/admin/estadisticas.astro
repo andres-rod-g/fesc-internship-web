@@ -3,6 +3,7 @@ import AdminLayout from "../../layouts/AdminLayout.astro";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "~/env";
 import { connectDB } from "~/utils/db.js";
+import { obtenerEstadisticas } from "~/utils/estadisticas.js";
 
 const token = Astro.cookies.get("token")?.value;
 let user = null;
@@ -21,177 +22,24 @@ if (!user) {
 }
 
 const db = await connectDB();
+const stats = await obtenerEstadisticas(db);
 
-// 1. ESTADÍSTICAS GENERALES
-const totalPracticantes = await db.collection("practicantes").countDocuments();
-const totalEmpresas = await db.collection("empresas").countDocuments();
-
-// 2. ANÁLISIS DE ESTADOS DE PRACTICANTES
-const estadosPracticantes = await db.collection("practicantes").aggregate([
-  {
-    $group: {
-      _id: "$estado",
-      count: { $sum: 1 }
-    }
-  }
-]).toArray();
-
-// 3. REGISTROS POR MES (últimos 12 meses)
-const hace12Meses = new Date();
-hace12Meses.setMonth(hace12Meses.getMonth() - 12);
-
-const registrosPorMes = await db.collection("practicantes").aggregate([
-  {
-    $match: {
-      _id: { $gte: hace12Meses }
-    }
-  },
-  {
-    $group: {
-      _id: {
-        año: { $year: "$_id" },
-        mes: { $month: "$_id" }
-      },
-      count: { $sum: 1 }
-    }
-  },
-  { $sort: { "_id.año": 1, "_id.mes": 1 } }
-]).toArray();
-
-// 4. DISTRIBUCIÓN POR PROGRAMAS ACADÉMICOS
-const programas = await db.collection("practicantes").aggregate([
-  {
-    $group: {
-      _id: "$programa",
-      total: { $sum: 1 },
-      pendientes: { $sum: { $cond: [{ $eq: ["$estado", "pendiente"] }, 1, 0] } },
-      revisando: { $sum: { $cond: [{ $eq: ["$estado", "revisando"] }, 1, 0] } },
-      finalizados: { $sum: { $cond: [{ $eq: ["$estado", "finalizado"] }, 1, 0] } },
-      rechazados: { $sum: { $cond: [{ $eq: ["$estado", "rechazado"] }, 1, 0] } }
-    }
-  },
-  { $sort: { total: -1 } }
-]).toArray();
-
-// 5. DISTRIBUCIÓN POR MODALIDAD
-const modalidades = await db.collection("practicantes").aggregate([
-  { $unwind: "$modalidad" },
-  {
-    $group: {
-      _id: "$modalidad",
-      count: { $sum: 1 }
-    }
-  },
-  { $sort: { count: -1 } }
-]).toArray();
-
-// 6. DISTRIBUCIÓN POR CICLO (Tecnólogo/Profesional)
-const ciclos = await db.collection("practicantes").aggregate([
-  {
-    $group: {
-      _id: "$ciclo",
-      count: { $sum: 1 }
-    }
-  }
-]).toArray();
-
-// 7. HERRAMIENTAS MÁS UTILIZADAS
-const herramientas = await db.collection("practicantes").aggregate([
-  { $unwind: "$herramientas" },
-  {
-    $group: {
-      _id: "$herramientas",
-      count: { $sum: 1 }
-    }
-  },
-  { $sort: { count: -1 } },
-  { $limit: 10 }
-]).toArray();
-
-// 8. ANÁLISIS DE EXPERIENCIA LABORAL
-const experienciaLaboral = await db.collection("practicantes").aggregate([
-  {
-    $project: {
-      tieneExperiencia: { $gt: [{ $size: { $ifNull: ["$experiencia_laboral", []] } }, 0] }
-    }
-  },
-  {
-    $group: {
-      _id: "$tieneExperiencia",
-      count: { $sum: 1 }
-    }
-  }
-]).toArray();
-
-// 9. EMPRESAS TOP POR PRACTICANTES
-const empresasTop = await db.collection("empresas").aggregate([
-  {
-    $project: {
-      nombre: 1,
-      sector: 1,
-      totalPracticantes: { $size: { $ifNull: ["$practicantes_asignados", []] } },
-      practicantesActivos: {
-        $size: {
-          $filter: {
-            input: { $ifNull: ["$practicantes_asignados", []] },
-            cond: { $in: ["$$this.estado_practica", ["pendiente", "activo"]] }
-          }
-        }
-      },
-      practicantesCompletados: {
-        $size: {
-          $filter: {
-            input: { $ifNull: ["$practicantes_asignados", []] },
-            cond: { $eq: ["$$this.estado_practica", "completado"] }
-          }
-        }
-      }
-    }
-  },
-  { $sort: { totalPracticantes: -1 } },
-  { $limit: 8 }
-]).toArray();
-
-// 10. DISTRIBUCIÓN POR SECTORES EMPRESARIALES
-const sectores = await db.collection("empresas").aggregate([
-  {
-    $group: {
-      _id: "$sector",
-      empresas: { $sum: 1 },
-      totalPracticantes: { $sum: { $size: { $ifNull: ["$practicantes_asignados", []] } } }
-    }
-  },
-  { $sort: { totalPracticantes: -1 } }
-]).toArray();
-
-// 11. ESTADOS DE PRÁCTICAS EN EMPRESAS
-const estadosPracticas = await db.collection("empresas").aggregate([
-  { $unwind: "$practicantes_asignados" },
-  {
-    $group: {
-      _id: "$practicantes_asignados.estado_practica",
-      count: { $sum: 1 }
-    }
-  }
-]).toArray();
-
-// 12. ACTIVIDAD RECIENTE (últimos 30 días)
-const hace30Dias = new Date();
-hace30Dias.setDate(hace30Dias.getDate() - 30);
-
-const actividadReciente = await db.collection("practicantes").aggregate([
-  {
-    $match: {
-      _id: { $gte: hace30Dias }
-    }
-  },
-  {
-    $group: {
-      _id: null,
-      total: { $sum: 1 }
-    }
-  }
-]).toArray();
+// Extraer las estadísticas
+const {
+  totalPracticantes,
+  totalEmpresas,
+  estadosPracticantes,
+  registrosPorMes,
+  programas,
+  modalidades,
+  ciclos,
+  herramientas,
+  experienciaLaboral,
+  empresasTop,
+  sectores,
+  estadosPracticas,
+  actividadReciente
+} = stats;
 
 // Preparar datos para gráficos
 const estadosData = estadosPracticantes.reduce((acc, curr) => {
@@ -217,6 +65,12 @@ const herramientasData = herramientas.slice(0, 8).map(h => h.count);
 const sectoresLabels = sectores.map(s => s._id || 'Sin sector');
 const sectoresData = sectores.map(s => s.totalPracticantes);
 
+const ciclosLabels = ciclos.map(c => c._id || 'Sin definir');
+const ciclosData = ciclos.map(c => c.count);
+
+const estadosPracticasLabels = estadosPracticas.map(e => e._id || 'Sin estado');
+const estadosPracticasData = estadosPracticas.map(e => e.count);
+
 // Estadísticas calculadas
 const pendientes = estadosData['pendiente'] || 0;
 const revisando = estadosData['revisando'] || 0;
@@ -228,6 +82,30 @@ const activosRecientes = actividadReciente[0]?.total || 0;
 
 const conExperiencia = experienciaLaboral.find(e => e._id === true)?.count || 0;
 const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0;
+
+// Preparar datos para el cliente (convertir a JSON)
+const chartData = {
+  pendientes,
+  revisando,
+  finalizados,
+  rechazados,
+  mesesLabels: JSON.stringify(mesesLabels),
+  mesesData: JSON.stringify(mesesData),
+  programasLabels: JSON.stringify(programasLabels),
+  programasData: JSON.stringify(programasData),
+  modalidadesLabels: JSON.stringify(modalidadesLabels),
+  modalidadesData: JSON.stringify(modalidadesData),
+  herramientasLabels: JSON.stringify(herramientasLabels),
+  herramientasData: JSON.stringify(herramientasData),
+  sectoresLabels: JSON.stringify(sectoresLabels),
+  sectoresData: JSON.stringify(sectoresData),
+  ciclosLabels: JSON.stringify(ciclosLabels),
+  ciclosData: JSON.stringify(ciclosData),
+  estadosPracticasLabels: JSON.stringify(estadosPracticasLabels),
+  estadosPracticasData: JSON.stringify(estadosPracticasData),
+  conExperiencia,
+  sinExperiencia
+};
 ---
 
 <AdminLayout title="Estadísticas | FESC">
@@ -453,7 +331,7 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
   
-  <script>
+  <script define:vars={{ chartData }}>
     // Esperar a que Chart.js se cargue completamente
     window.addEventListener('load', function() {
       // Verificar si Chart está disponible
@@ -482,7 +360,7 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
             data: {
               labels: ['Pendiente', 'En Revisión', 'Finalizado', 'Rechazado'],
               datasets: [{
-                data: [{pendientes}, {revisando}, {finalizados}, {rechazados}],
+                data: [chartData.pendientes, chartData.revisando, chartData.finalizados, chartData.rechazados],
                 backgroundColor: ['#F59E0B', '#3B82F6', '#10B981', '#EF4444'],
                 borderWidth: 2,
                 borderColor: '#fff'
@@ -509,10 +387,10 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
     new Chart(tendenciaCtx, {
       type: 'line',
       data: {
-        labels: {JSON.stringify(mesesLabels)},
+        labels: JSON.parse(chartData.mesesLabels),
         datasets: [{
           label: 'Registros por Mes',
-          data: {JSON.stringify(mesesData)},
+          data: JSON.parse(chartData.mesesData),
           borderColor: '#3B82F6',
           backgroundColor: 'rgba(59, 130, 246, 0.1)',
           fill: true,
@@ -545,10 +423,10 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
     new Chart(programasCtx, {
       type: 'bar',
       data: {
-        labels: {JSON.stringify(programasLabels)},
+        labels: JSON.parse(chartData.programasLabels),
         datasets: [{
           label: 'Estudiantes',
-          data: {JSON.stringify(programasData)},
+          data: JSON.parse(chartData.programasData),
           backgroundColor: [
             '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', 
             '#EF4444', '#06B6D4', '#84CC16', '#F97316'
@@ -580,9 +458,9 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
     new Chart(modalidadesCtx, {
       type: 'doughnut',
       data: {
-        labels: {JSON.stringify(modalidadesLabels)},
+        labels: JSON.parse(chartData.modalidadesLabels),
         datasets: [{
-          data: {JSON.stringify(modalidadesData)},
+          data: JSON.parse(chartData.modalidadesData),
           backgroundColor: [
             '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', 
             '#EF4444', '#06B6D4'
@@ -609,10 +487,10 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
     new Chart(herramientasCtx, {
       type: 'bar',
       data: {
-        labels: {JSON.stringify(herramientasLabels)},
+        labels: JSON.parse(chartData.herramientasLabels),
         datasets: [{
           label: 'Menciones',
-          data: {JSON.stringify(herramientasData)},
+          data: JSON.parse(chartData.herramientasData),
           backgroundColor: '#10B981',
           borderRadius: 4
         }]
@@ -641,9 +519,9 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
     new Chart(sectoresCtx, {
       type: 'polarArea',
       data: {
-        labels: {JSON.stringify(sectoresLabels)},
+        labels: JSON.parse(chartData.sectoresLabels),
         datasets: [{
-          data: {JSON.stringify(sectoresData)},
+          data: JSON.parse(chartData.sectoresData),
           backgroundColor: [
             'rgba(59, 130, 246, 0.7)', 'rgba(16, 185, 129, 0.7)', 
             'rgba(139, 92, 246, 0.7)', 'rgba(245, 158, 11, 0.7)',
@@ -674,7 +552,7 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
       data: {
         labels: ['Con Experiencia', 'Sin Experiencia'],
         datasets: [{
-          data: [{conExperiencia}, {sinExperiencia}],
+          data: [chartData.conExperiencia, chartData.sinExperiencia],
           backgroundColor: ['#10B981', '#F59E0B'],
           borderWidth: 2,
           borderColor: '#fff'
@@ -694,14 +572,12 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
 
     // 8. Ciclos Académicos
     const ciclosCtx = document.getElementById('ciclosChart').getContext('2d');
-    const ciclosLabels = {JSON.stringify(ciclos.map(c => c._id || 'Sin definir'))};
-    const ciclosData = {JSON.stringify(ciclos.map(c => c.count))};
     new Chart(ciclosCtx, {
       type: 'doughnut',
       data: {
-        labels: ciclosLabels,
+        labels: JSON.parse(chartData.ciclosLabels),
         datasets: [{
-          data: ciclosData,
+          data: JSON.parse(chartData.ciclosData),
           backgroundColor: ['#8B5CF6', '#3B82F6'],
           borderWidth: 3,
           borderColor: '#fff'
@@ -722,15 +598,13 @@ const sinExperiencia = experienciaLaboral.find(e => e._id === false)?.count || 0
 
     // 9. Estados de Prácticas
     const estadosPracticasCtx = document.getElementById('estadosPracticasChart').getContext('2d');
-    const estadosPracticasLabels = {JSON.stringify(estadosPracticas.map(e => e._id || 'Sin estado'))};
-    const estadosPracticasData = {JSON.stringify(estadosPracticas.map(e => e.count))};
     new Chart(estadosPracticasCtx, {
       type: 'bar',
       data: {
-        labels: estadosPracticasLabels,
+        labels: JSON.parse(chartData.estadosPracticasLabels),
         datasets: [{
           label: 'Prácticas',
-          data: estadosPracticasData,
+          data: JSON.parse(chartData.estadosPracticasData),
           backgroundColor: ['#F59E0B', '#10B981', '#3B82F6'],
           borderRadius: 6
         }]
