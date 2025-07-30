@@ -5,44 +5,14 @@ services:
   app:
     build: .
     ports:
-      - "4321:4321"
+      - "${APP_PORT}:4321"
     environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/fesc-internship
-      - JWT_SECRET=your-jwt-secret-here-change-in-production
-    depends_on:
-      - mongodb
+      - NODE_ENV=${NODE_ENV}
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USER=${ADMIN_USER}
+      - ADMIN_PASS=${ADMIN_PASS}
+      - ADMIN_ROLE=${ADMIN_ROLE}
     volumes:
       - ./public/uploads:/app/public/uploads
     restart: unless-stopped
-
-  # MongoDB
-  mongodb:
-    image: mongo:7-jammy
-    ports:
-      - "27017:27017"
-    environment:
-      - MONGO_INITDB_DATABASE=fesc-internship
-    volumes:
-      - mongodb_data:/data/db
-      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
-    restart: unless-stopped
-
-  # MongoDB Express (Interfaz web opcional para administración)
-  mongo-express:
-    image: mongo-express:latest
-    ports:
-      - "8081:8081"
-    environment:
-      - ME_CONFIG_MONGODB_SERVER=mongodb
-      - ME_CONFIG_MONGODB_PORT=27017
-      - ME_CONFIG_BASICAUTH_USERNAME=admin
-      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
-    depends_on:
-      - mongodb
-    restart: unless-stopped
-    profiles:
-      - admin
-
-volumes:
-  mongodb_data:
