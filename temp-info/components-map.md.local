@@ -1,0 +1,128 @@
+# MAPA DE COMPONENTES
+
+## COMPONENTES UI REUTILIZABLES
+Ubicación: `src/components/ui/`
+
+### FormInput.jsx
+- Props: label, name, type, value, onChange, required, placeholder, error
+- Uso: Inputs de texto, email, tel, date
+- Estilo consistente con Tailwind
+
+### FormSelect.jsx
+- Props: label, name, value, onChange, options, required, error
+- Uso: Selects con opciones
+- options: [{value, label}]
+
+### FormTextarea.jsx
+- Props: label, name, value, onChange, rows, required, placeholder, error
+- Uso: Áreas de texto
+
+### FileUpload.jsx
+- Props: label, name, onChange, accept, maxSize, preview, required, error
+- Uso: Upload de imágenes/archivos
+- Preview automático
+- Validación de tamaño/tipo
+
+### Button.jsx
+- Props: children, onClick, type, variant, disabled, loading, icon
+- Variants: primary, secondary, danger, success
+- Loading state con spinner
+
+### StageIndicator.jsx
+- Props: currentStage, stages
+- Muestra progreso visual del flujo
+- Stages completados, actual, pendientes
+
+### Badge.jsx
+- Props: count, variant
+- Uso: Contadores en menú admin
+- Variants: default, warning, danger
+
+## COMPONENTES DE FORMULARIO
+Ubicación: `src/components/forms/`
+
+### PreinscripcionForm.jsx
+- Stage 1: Formulario completo de preinscripción
+- Usa componentes UI reutilizables
+- Maneja arrays dinámicos (educación, experiencia)
+- Canvas para firma digital
+
+### ValidacionPagoForm.jsx
+- Stage 2A: Estudiante sube comprobante
+- FileUpload para imagen
+- Muestra resumen de preinscripción
+- Preview de comprobante
+
+### CreacionEstudianteForm.jsx
+- Stage 3: Admin crea usuario estudiante
+- Datos precargados de preinscripción
+- Input para contraseña temporal
+- Generador automático de contraseña
+- Checkbox enviar email
+
+## COMPONENTES ADMIN
+Ubicación: `src/components/admin/`
+
+### ValidacionPagoCard.jsx
+- Card para revisar comprobante
+- Botones aprobar/rechazar
+- Modal para comentarios
+- Visor de imagen ampliable
+
+### EstudiantePorCrearCard.jsx
+- Card en lista de validados
+- Info resumida del practicante
+- Botón crear estudiante
+- Link a detalles completos
+
+### FlowDocumentation.jsx
+- Renderiza documentación de temp-info
+- Accordion por stage
+- Timeline visual
+- Links a secciones admin
+- Búsqueda en contenido
+
+### StatCard.jsx
+- Cards de estadísticas en dashboard
+- Icon, title, value, subtitle
+- Color variants
+
+## LAYOUTS
+Ubicación: `src/layouts/`
+
+### MainLayout.astro
+- Layout público
+- Header, footer
+- Sin auth
+
+### AdminLayout.astro
+- Layout admin
+- Sidebar con menú
+- Auth requerido
+- Badges en menú items
+- User dropdown
+
+## PÁGINAS PRINCIPALES
+
+### Públicas
+- `/src/pages/preinscripcion.astro` → PreinscripcionForm
+- `/src/pages/preinscripcion/confirmacion.astro` → Confirmación preinscripción exitosa
+- `/src/pages/estudiante/subir-comprobante.astro` → Subir comprobante pago (link compartible)
+- `/src/pages/preinscripcion/confirmacion-comprobante.astro` → Confirmación comprobante subido
+
+### Admin
+- `/src/pages/admin/dashboard.astro` → Stats + Recent
+- `/src/pages/admin/practicantes.astro` → Tabla preinscripciones
+- `/src/pages/admin/practicantes/[id].astro` → Detalle practicante + botón copiar link comprobante
+- `/src/pages/admin/validaciones-pago.astro` → Lista validaciones pendientes
+- `/src/pages/admin/estudiantes-por-crear.astro` → Lista validados sin crear
+- `/src/pages/admin/documentacion-flujo.astro` → FlowDocumentation
+
+## APIs
+Ubicación: `src/pages/api/`
+
+- `POST /api/preinscripciones` → Crear preinscripción
+- `POST /api/validacion-pago/subir` → Subir comprobante
+- `POST /api/validacion-pago/validar` → Aprobar/rechazar
+- `POST /api/estudiantes/crear` → Crear usuario estudiante
+- `GET /api/estudiantes-por-crear` → Lista para admin

@@ -1,6 +1,7 @@
 ---
 import AdminLayout from "~/layouts/AdminLayout.astro";
-import { connectDB } from "~/utils/db.js";
+import BuscadorPracticantes from "~/components/admin/BuscadorPracticantes.jsx";
+import TablaPracticantes from "~/components/admin/TablaPracticantes.jsx";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "~/env";
 
@@ -16,13 +17,14 @@ if (token) {
 }
 
 if (!user) {
-  console.log("Token inválido o no presente. Redirigiendo al login.");
   return Astro.redirect("/login");
 }
 
-const db = await connectDB();
-const practicantes = await db.collection("practicantes").find().toArray();
+if (user.role !== "admin") {
+  return Astro.redirect("/admin/validaciones-pago");
+}
 ---
+
 <AdminLayout title="Practicantes | FESC">
   <div class="space-y-6">
     <!-- Header -->
@@ -44,214 +46,221 @@ const practicantes = await db.collection("practicantes").find().toArray();
       </a>
     </div>
 
-    <!-- Estadísticas rápidas -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <div class="bg-white p-4 rounded-lg border border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">Total</p>
-            <p class="text-2xl font-bold text-gray-800">{practicantes.length}</p>
-          </div>
-          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-      
-      <div class="bg-white p-4 rounded-lg border border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">Pendientes</p>
-            <p class="text-2xl font-bold text-yellow-600">{practicantes.filter(p => p.estado === 'pendiente').length}</p>
-          </div>
-          <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
-            <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-      
-      <div class="bg-white p-4 rounded-lg border border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">En Progreso</p>
-            <p class="text-2xl font-bold text-blue-600">{practicantes.filter(p => p.estado === 'revisando').length}</p>
-          </div>
-          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-      
-      <div class="bg-white p-4 rounded-lg border border-gray-200">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm text-gray-600">Completados</p>
-            <p class="text-2xl font-bold text-green-600">{practicantes.filter(p => p.estado === 'finalizado').length}</p>
-          </div>
-          <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-        </div>
-      </div>
+    <!-- Buscador y Filtros -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">Buscar y Filtrar</h2>
+      <BuscadorPracticantes client:load />
     </div>
-    
-    <!-- Tabla de practicantes -->
+
+    <!-- Tabla de practicantes (dinámica) -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200">
       <div class="p-6 border-b border-gray-200">
         <h2 class="text-xl font-semibold text-gray-800">Lista de Practicantes</h2>
       </div>
-      
-      {practicantes.length === 0 ? (
-        <div class="p-8 text-center">
-          <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
-          </svg>
-          <h3 class="text-lg font-medium text-gray-800 mb-2">No hay practicantes registrados</h3>
-          <p class="text-gray-600 mb-4">Comienza registrando el primer practicante en el sistema</p>
-          <a href="/admin/nuevo-practicante" class="bg-accent text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
-            Registrar Practicante
-          </a>
-        </div>
-      ) : (
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Practicante</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Laboral</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Carrera</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-              {practicantes.map((practicante) => (
-                <tr class="hover:bg-gray-50 cursor-pointer" onclick={`window.location.href='/admin/practicantes/${practicante._id}'`}>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="flex items-center">
-                      <div class="flex-shrink-0 h-10 w-10">
-                        <div class="h-10 w-10 rounded-full overflow-hidden border border-gray-300">
-                          {practicante.foto ? (
-                            <img 
-                              src={`/api/fotos/${practicante._id}`} 
-                              alt={`${practicante.nombres} ${practicante.apellidos}`}
-                              class="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div class="w-full h-full bg-accent flex items-center justify-center">
-                              <span class="text-white font-medium text-sm">{practicante.nombres?.charAt(0) || 'P'}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div class="ml-4">
-                        <div class="text-sm font-medium text-gray-900 hover:text-accent">{practicante.nombres} {practicante.apellidos}</div>
-                        <div class="text-sm text-gray-500">{practicante.correo_institucional}</div>
-                        <div class="text-xs text-gray-400">{practicante.tipo_documento}: {practicante.numero_documento}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span class={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${practicante.estado_laboral === 'seeking_internship' ? 'bg-blue-100 text-blue-800' : ''}
-                      ${practicante.estado_laboral === 'working' ? 'bg-green-100 text-green-800' : ''}
-                      ${practicante.estado_laboral === 'entrepreneur' ? 'bg-purple-100 text-purple-800' : ''}
-                      ${!practicante.estado_laboral ? 'bg-gray-100 text-gray-800' : ''}
-                    `}>
-                      {practicante.estado_laboral === 'seeking_internship' ? 'Busca prácticas' : 
-                       practicante.estado_laboral === 'working' ? 'Trabaja' : 
-                       practicante.estado_laboral === 'entrepreneur' ? 'Emprendedor' : 'No especificado'}
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-gray-900">{practicante.programa || 'No especificado'}</div>
-                    {practicante.informacion_academica?.[0]?.institucion && (
-                      <div class="text-sm text-gray-500">Institución: {practicante.informacion_academica[0].institucion}</div>
-                    )}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <span class={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                      ${practicante.estado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' : ''}
-                      ${practicante.estado === 'revisando' ? 'bg-blue-100 text-blue-800' : ''}
-                      ${practicante.estado === 'finalizado' ? 'bg-green-100 text-green-800' : ''}
-                      ${practicante.estado === 'rechazado' ? 'bg-red-100 text-red-800' : ''}
-                    `}>
-                      {practicante.estado === 'pendiente' ? 'Pendiente' : 
-                       practicante.estado === 'revisando' ? 'En Revisión' : 
-                       practicante.estado === 'finalizado' ? 'Finalizado' : 
-                       practicante.estado === 'rechazado' ? 'Rechazado' : practicante.estado}
-                    </span>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div class="flex items-center gap-2">
-                      <a 
-                        href={`/admin/practicantes/${practicante._id}`}
-                        class="text-accent hover:text-red-700 font-medium"
-                        onclick="event.stopPropagation()"
-                      >
-                        Ver detalles
-                      </a>
-                      <select 
-                        class="block pl-3 pr-8 py-1 text-sm border-gray-300 focus:outline-none focus:ring-accent focus:border-accent rounded-md"
-                        data-id={practicante._id}
-                        data-current-status={practicante.estado}
-                        onchange="updatePracticanteStatus(this)"
-                        onclick="event.stopPropagation()"
-                      >
-                        <option value="pendiente" selected={practicante.estado === 'pendiente'}>Pendiente</option>
-                        <option value="revisando" selected={practicante.estado === 'revisando'}>En Revisión</option>
-                        <option value="finalizado" selected={practicante.estado === 'finalizado'}>Finalizado</option>
-                        <option value="rechazado" selected={practicante.estado === 'rechazado'}>Rechazado</option>
-                      </select>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+
+      <div id="tabla-container"></div>
     </div>
+
+    <!-- Paginación -->
+    <div id="pagination-container"></div>
   </div>
 </AdminLayout>
 
 <script is:inline>
-  async function updatePracticanteStatus(selectElement) {
-    const id = selectElement.dataset.id;
-    const newStatus = selectElement.value;
-    const currentStatus = selectElement.dataset.currentStatus;
+  // Global state
+  let currentPage = 1;
+  window.currentResults = [];
+  window.currentPagination = null;
 
-    if (newStatus === currentStatus) return;
+  function updateTablaVista() {
+    const tablaContainer = document.getElementById('tabla-container');
 
-    try {
-      const res = await fetch(`/api/practicantes/${id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ estado: newStatus }),
-      });
-
-      if (res.ok) {
-        alert('Estado actualizado correctamente.');
-        window.location.reload(); // Recargar para ver los cambios
-      } else {
-        const data = await res.json();
-        alert(`Error al actualizar estado: ${data.error || 'Error desconocido'}`);
-        selectElement.value = currentStatus; // Revertir selección
-      }
-    } catch (error) {
-      console.error('Error de conexión:', error);
-      alert('Error de conexión al servidor.');
-      selectElement.value = currentStatus; // Revertir selección
+    if (!window.currentResults || window.currentResults.length === 0) {
+      tablaContainer.innerHTML = `
+        <div class="p-8 text-center">
+          <p class="text-gray-500">Realiza una búsqueda o aplica filtros para ver los practicantes</p>
+        </div>
+      `;
+      return;
     }
+
+    // Generar tabla HTML
+    let html = `
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Practicante</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correo</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cédula</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Laboral</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Creación</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gestión</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+    `;
+
+    window.currentResults.forEach(p => {
+      const estadoLaboralColors = {
+        'seeking_internship': 'bg-blue-100 text-blue-800',
+        'working': 'bg-green-100 text-green-800',
+        'entrepreneur': 'bg-purple-100 text-purple-800'
+      };
+
+      const estadoLaboralLabels = {
+        'seeking_internship': 'Busca prácticas',
+        'working': 'Trabaja',
+        'entrepreneur': 'Emprendedor'
+      };
+
+      const formatDate = (date) => {
+        return new Date(date).toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      };
+
+      const colorClass = estadoLaboralColors[p.estado_laboral] || 'bg-gray-100 text-gray-800';
+      const labelEstado = estadoLaboralLabels[p.estado_laboral] || 'No especificado';
+      const fechaFormato = formatDate(p.createdAt);
+
+      let gestionHTML = '';
+      if (p.estado_preinscripcion === 'estudiante_creado') {
+        gestionHTML = `
+          <div class="flex flex-col gap-1">
+            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full w-fit">
+              ✓ Pago
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full w-fit">
+              ✓ Usuario
+            </span>
+          </div>
+        `;
+      } else if (p.estado_preinscripcion === 'pago_validado') {
+        gestionHTML = `
+          <div class="flex flex-col gap-1">
+            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full w-fit">
+              ✓ Pago
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full w-fit">
+              ⚠️ Usuario pendiente
+            </span>
+          </div>
+        `;
+      } else {
+        gestionHTML = `
+          <div class="flex flex-col gap-1">
+            <span class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full w-fit">
+              ✗ Pago no validado
+            </span>
+          </div>
+        `;
+      }
+
+      html += `
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-6 py-4 whitespace-nowrap text-left">
+            <div class="flex items-center gap-3">
+              <img src="${p.foto_url || `/api/practicantes/${p._id}/foto`}" alt="${p.nombres} ${p.apellidos}" class="w-10 h-10 rounded-full object-cover bg-gray-200" />
+              <div>
+                <div class="text-sm font-medium text-gray-900">${p.nombres} ${p.apellidos}</div>
+                <div class="text-xs text-gray-500">${p.programa || 'No especificado'}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm text-gray-600">${p.correo_institucional || '-'}</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm text-gray-600">${p.numero_documento || '-'}</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-3 py-1 inline-flex text-xs font-semibold rounded-full ${colorClass}">
+              ${labelEstado}
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm text-gray-600">${fechaFormato}</div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            ${gestionHTML}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+            <a href="/admin/practicantes/${p._id}" class="text-accent hover:text-red-700 font-medium">
+              Ver detalles
+            </a>
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    tablaContainer.innerHTML = html;
   }
+
+  function renderPaginacion() {
+    const paginationContainer = document.getElementById('pagination-container');
+
+    if (!window.currentPagination || window.currentPagination.totalPages <= 1) {
+      paginationContainer.innerHTML = '';
+      return;
+    }
+
+    const pagination = window.currentPagination;
+    paginationContainer.innerHTML = `
+      <div class="flex items-center justify-between px-4 py-3 bg-white rounded-lg border border-gray-200">
+        <div class="text-sm text-gray-600">
+          Mostrando <span class="font-semibold">${pagination.total}</span> practicantes
+          (Página <span class="font-semibold">${currentPage}</span> de
+          <span class="font-semibold">${pagination.totalPages}</span>)
+        </div>
+        <div class="flex items-center gap-1">
+          <button
+            onclick="changePage(${currentPage - 1})"
+            ${currentPage === 1 ? 'disabled' : ''}
+            class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            ◀
+          </button>
+          ${Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+            .filter(p => Math.abs(p - currentPage) <= 2 || p === 1 || p === pagination.totalPages)
+            .map(page => `
+              <button
+                onclick="changePage(${page})"
+                class="px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  page === currentPage
+                    ? 'bg-red-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }"
+              >
+                ${page}
+              </button>
+            `).join('')}
+          <button
+            onclick="changePage(${currentPage + 1})"
+            ${currentPage === pagination.totalPages ? 'disabled' : ''}
+            class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            ▶
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  window.changePage = (page) => {
+    console.log("changePage called with page:", page);
+    currentPage = page;
+    if (window.onPageChangeFromBuscador) {
+      window.onPageChangeFromBuscador(page);
+    }
+  };
 </script>

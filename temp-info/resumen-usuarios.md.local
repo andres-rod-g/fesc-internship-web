@@ -1,0 +1,52 @@
+✅ NUEVA FUNCIONALIDAD: GESTIÓN DE USUARIOS
+
+Sección completa en admin para crear y gestionar usuarios manualmente con modal.
+
+## ARCHIVOS CREADOS
+
+### APIs (Backend)
+- `src/pages/api/usuarios/crear.js` - POST crear usuario
+- `src/pages/api/usuarios/listar.js` - GET listar usuarios
+
+### Componentes React (Frontend)
+- `src/components/admin/ModalCrearUsuario.jsx` - Modal crear usuario
+- `src/components/admin/GestorUsuarios.jsx` - Contenedor con botón + lista
+- `src/components/admin/ListaUsuarios.jsx` - Tabla usuarios
+
+### Páginas
+- `src/pages/admin/usuarios.astro` - Page principal
+
+### Layout
+- Actualizado: `src/layouts/AdminLayout.astro` - Link en menú "Usuarios"
+
+## CARACTERÍSTICAS
+
+✓ Modal para crear usuarios (como otros modales de la app)
+✓ 3 roles: Admin, Registro y Control, Estudiante
+✓ Generar contraseñas automáticamente (12 caracteres + símbolos)
+✓ Tabla listado usuarios actualizada automáticamente
+✓ Campos: nombres, apellidos, username, email, rol
+✓ Solo admin accede
+✓ Validaciones frontend/backend
+✓ Rate limiting: 30 req/5min por IP
+
+## FLUJO
+
+1. Admin va a `/admin/usuarios`
+2. Haz clic en botón "Crear Usuario"
+3. Abre modal con formulario
+4. Completa datos y genera password
+5. Clic "Crear"
+6. Éxito: modal muestra confirmación
+7. Lista se actualiza automáticamente
+
+## ACCESO
+
+- URL: `/admin/usuarios`
+- Rol: admin (solo)
+- Menú: Gestión > Usuarios
+
+## BD
+
+Collection: `users`
+Campos: username, email, password (hash), role, nombres, apellidos, createdAt, updatedAt, createdBy

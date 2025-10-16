@@ -1,0 +1,66 @@
+# PERMISOS POR ROL
+
+## ROLES DISPONIBLES
+- admin
+- registro_control
+- estudiante
+
+## PERMISOS DETALLADOS
+
+### admin (Acceso Total)
+- ✅ Ver dashboard completo
+- ✅ Ver todas las preinscripciones
+- ✅ Validar pagos
+- ✅ Crear estudiantes (Stage 3)
+- ✅ Gestionar empresas
+- ✅ Ver estadísticas
+- ✅ Acceder a documentación
+- ✅ Gestionar usuarios
+
+### registro_control (Operativo)
+- ✅ Ver dashboard
+- ✅ Ver preinscripciones
+- ✅ Validar pagos (Stage 2B)
+- ❌ Crear estudiantes
+- ✅ Ver empresas (solo lectura)
+- ✅ Acceder a documentación
+- ❌ Gestionar usuarios
+
+### estudiante (Limitado)
+- ✅ Ver propio perfil
+- ✅ Editar propio perfil
+- ✅ Subir comprobante pago (si habilitado)
+- ✅ Ver estado de preinscripción
+- ❌ Acceso a panel admin
+- ❌ Ver otros estudiantes
+
+## RUTAS PROTEGIDAS
+
+### Público (sin auth)
+- `/preinscripcion`
+- `/login`
+- `/validacion-pago/[id]?token=xxx` (con token temporal)
+
+### Admin + Registro y Control
+- `/admin/dashboard`
+- `/admin/preinscripciones`
+- `/admin/validaciones-pago`
+- `/admin/empresas` (read)
+- `/admin/documentacion-flujo`
+
+### Solo Admin
+- `/admin/estudiantes-por-crear`
+- `/admin/estudiantes`
+- `/admin/estudiantes/crear/[id]`
+- `/admin/empresas` (write)
+
+### Solo Estudiante
+- `/estudiante/perfil`
+- `/estudiante/dashboard`
+
+## MIDDLEWARE DE AUTENTICACIÓN
+```js
+// src/middleware/checkAuth.js
+checkRole(['admin', 'registro_control']) → permite acceso
+checkRole(['admin']) → solo admin
+```

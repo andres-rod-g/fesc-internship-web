@@ -1,0 +1,86 @@
+# FLOW STAGES - Sistema de Preinscripción FESC
+
+## STAGE 1: PREINSCRIPCIÓN
+- **Descripción**: Estudiante completa formulario inicial con información personal, académica y profesional
+- **Acceso**: Público (sin autenticación)
+- **URL**: `/preinscripcion`
+- **Componente**: `PreinscripcionForm.jsx`
+- **API**: `POST /api/preinscripciones`
+- **Estado resultante**: `estado_preinscripcion: "preinscrito"`
+- **Campos requeridos**:
+  - Programa, ciclo, modalidad
+  - Nombres, apellidos, documento
+  - Correo institucional
+  - Foto personal
+  - Info académica (mínimo 1)
+- **Siguiente paso**: Esperar habilitación manual por admin para pasar a Stage 2
+- **Notificaciones**: Email confirmación de preinscripción
+
+## STAGE 2: VALIDACIÓN DE PAGO
+### 2A: Estudiante Sube Comprobante
+- **Descripción**: Estudiante sube imagen del comprobante de pago
+- **Acceso**: Link con token enviado por email
+- **URL**: `/validacion-pago/[id]?token=xxx`
+- **Componente**: `ValidacionPagoForm.jsx`
+- **API**: `POST /api/validacion-pago/subir`
+- **Estado resultante**: `estado_preinscripcion: "pago_pendiente"`
+- **Campos**:
+  - Imagen comprobante (JPG/PNG, max 5MB)
+  - validacion_pago.estado: "pendiente"
+- **Siguiente paso**: Esperar validación de admin/registro_control
+
+### 2B: Admin Valida Pago
+- **Descripción**: Admin o Registro y Control revisa y valida comprobante
+- **Acceso**: Roles: admin, registro_control
+- **URL**: `/admin/validaciones-pago`
+- **Componente**: `ValidacionPagoCard.jsx`
+- **API**: `POST /api/validacion-pago/validar`
+- **Acciones posibles**:
+  - Aprobar: estado → "pago_validado", validacion_pago.estado: "aprobado"
+  - Rechazar: estado → "rechazado", validacion_pago.estado: "rechazado"
+- **Campos guardados**:
+  - validado_por (username)
+  - fecha_validacion
+  - comentarios
+- **Siguiente paso**: Si aprobado → aparece en "Estudiantes por Crear"
+
+## STAGE 3: CREACIÓN DE ESTUDIANTE
+- **Descripción**: Admin crea usuario en sistema con rol estudiante
+- **Acceso**: Solo rol admin
+- **URL**: `/admin/estudiantes-por-crear` → `/admin/estudiantes/crear/[id]`
+- **Componente**: `CreacionEstudianteForm.jsx`
+- **API**: `POST /api/estudiantes/crear`
+- **Estado resultante**: `estado_preinscripcion: "estudiante_creado"`
+- **Acciones**:
+  1. Asignar contraseña temporal
+  2. Crear registro en collection users con:
+     - username (numero_documento o correo)
+     - password (hash bcrypt)
+     - role: "estudiante"
+     - practicante_id: ObjectId referencia
+  3. Guardar en estudiante_info:
+     - usuario_id
+     - fecha_creacion
+     - creado_por
+- **Siguiente paso**: Enviar credenciales por email
+- **Notificaciones**: Email con usuario y contraseña temporal
+
+## ESTADOS POSIBLES
+- `preinscrito`: Formulario inicial completado
+- `pago_pendiente`: Comprobante subido, esperando validación
+- `pago_validado`: Comprobante aprobado, esperando creación de usuario
+- `estudiante_creado`: Usuario creado exitosamente
+- `rechazado`: Rechazado en algún stage (con comentarios)
+
+## FLUJO VISUAL
+```
+[Público] → PREINSCRIPCIÓN → [preinscrito]
+                ↓
+[Estudiante] → SUBE PAGO → [pago_pendiente]
+                ↓
+[Admin/RC] → VALIDA PAGO → [pago_validado]
+                ↓
+[Admin] → CREA ESTUDIANTE → [estudiante_creado]
+                ↓
+[Estudiante] → ACCESO AL SISTEMA
+```

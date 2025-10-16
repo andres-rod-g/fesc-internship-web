@@ -4,6 +4,7 @@ import { connectDB } from "~/utils/db.js";
 import { ObjectId } from "mongodb";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "~/env";
+import { Link, Copy } from "lucide-react";
 
 const token = Astro.cookies.get("token")?.value;
 let user = null;
@@ -338,23 +339,54 @@ if (!practicante) {
     <!-- Acciones -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 class="text-xl font-semibold text-gray-800 mb-4">Acciones</h2>
+
+      {practicante.estado_preinscripcion === 'preinscrito' && (
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded mb-4">
+          <div class="flex items-start gap-3">
+            <Link className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div class="flex-1">
+              <h3 class="font-semibold text-blue-900 mb-1">Link para Subir Comprobante de Pago</h3>
+              <p class="text-sm text-blue-700 mb-2">
+                Copia este enlace y envíaselo al estudiante para que pueda subir su comprobante de pago
+              </p>
+              <div class="flex items-center gap-2">
+                <input
+                  type="text"
+                  id="link-comprobante"
+                  readonly
+                  value={`${Astro.url.origin}/estudiante/subir-comprobante?id=${practicante._id}`}
+                  class="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onclick="copiarLinkComprobante()"
+                  class="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copiar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <a href={`/admin/practicantes`} class="btn-secondary text-center">
           Volver a la Lista
         </a>
-        <button 
+        <button
           class="btn-primary"
           onclick="editarPracticante()"
         >
           Editar Información
         </button>
-        <button 
+        <button
           class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
           onclick="descargarFormato()"
         >
           Descargar Formato con Plantilla
         </button>
-        <button 
+        <button
           class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
           onclick="generarPDF()"
         >
@@ -366,6 +398,30 @@ if (!practicante) {
 </AdminLayout>
 
 <script is:inline>
+  function copiarLinkComprobante() {
+    const input = document.getElementById('link-comprobante');
+
+    // Seleccionar el texto del input
+    input.select();
+    input.setSelectionRange(0, 99999); // Para dispositivos móviles
+
+    // Copiar al portapapeles usando la API moderna
+    navigator.clipboard.writeText(input.value).then(() => {
+      // Cambiar el texto del botón temporalmente
+      const button = event.target.closest('button');
+      const originalHTML = button.innerHTML;
+      button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="20 6 9 17 4 12"></polyline></svg> ¡Copiado!';
+
+      // Restaurar el texto original después de 2 segundos
+      setTimeout(() => {
+        button.innerHTML = originalHTML;
+      }, 2000);
+    }).catch(err => {
+      console.error('Error al copiar:', err);
+      alert('Error al copiar el enlace. Por favor, cópialo manualmente.');
+    });
+  }
+
   async function cambiarEstado() {
     const select = document.getElementById('estado-select');
     const id = select.dataset.id;

@@ -1,0 +1,100 @@
+## STUDENT CREATION - EMAIL + DOCUMENTO + PASSWORD
+
+### CAMBIOS IMPLEMENTADOS
+
+#### Backend API: POST /api/estudiantes/crear
+- Request: practicante_id, password (opcional)
+- Validación: Verifica correo_institucional y password (min 6 chars si presente)
+- Usuario creado con:
+  - username: practicante.numero_documento
+  - email: practicante.correo_institucional
+  - password: bcrypt hash (si se proporciona)
+  - role: "estudiante"
+  - nombres, apellidos
+
+#### Frontend Component: EstudiantePorCrearCard
+1. **Modal de creación**
+   - Muestra documento (readonly)
+   - Muestra correo institucional (readonly)
+   - Input contraseña (editable)
+   - Botones: Generar contraseña, Ver/Ocultar, Crear Estudiante
+
+2. **Modal de éxito**
+   - Muestra Usuario (documento)
+   - Muestra Correo institucional
+   - Ambos con botón copiar
+   - Warning: "Comunica credenciales de forma segura"
+
+### FLUJO USUARIO
+1. Admin en /admin/estudiantes-por-crear
+2. Click "Crear Estudiante"
+3. Modal muestra:
+   - Documento (readonly)
+   - Correo institucional (readonly)
+   - Campo para contraseña
+4. Admin puede:
+   - Generar contraseña automática
+   - Ver/ocultar contraseña
+   - Ingresar contraseña manual (min 6 chars)
+5. Click "Crear Estudiante"
+6. Modal de éxito muestra documento y correo
+7. Cierra después de 3 segundos
+
+### CREDENCIALES ESTUDIANTE
+- Usuario: numero_documento (ej: 1234567890)
+- Email: correo_institucional (ej: estudiante@fesc.edu.co)
+- Password: La proporcionada durante creación
+- Puede ingresar con: documento O correo + contraseña
+
+### DATABASE
+Collection "users" para estudiante:
+```
+{
+  username: "1234567890",
+  email: "estudiante@fesc.edu.co",
+  password: bcrypt_hash,
+  role: "estudiante",
+  practicante_id: ObjectId,
+  nombres: "...",
+  apellidos: "...",
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+## PRACTICANTES TABLE - FOTO + ALIGNMENT
+
+### Cambios implementados
+- `/api/practicantes/[id]/foto.js` (NEW): Endpoint que retorna imagen o avatar SVG
+  - Si existe foto: retorna Buffer binary con headers correctos
+  - Si NO existe foto: genera SVG avatar con 2 primeras letras (inicial nombre + inicial apellido)
+  - Color de fondo determinado por hash del nombre (consistente)
+  - Headers: Cache-Control 1 año para ambos casos
+
+- `/api/practicantes/buscar.js`:
+  - Genera URL `/api/practicantes/{id}/foto` para todas las fotos
+  - No pasa base64 en respuesta JSON (reduce tamaño)
+
+- `practicantes.astro`: Tabla ahora muestra:
+  - Foto circular 40x40px (imagen real o SVG fallback)
+  - Nombre + programa alineado a la izquierda
+  - Foto y nombre en mismo row (flex gap-3)
+
+## PRACTICANTES SORTING
+
+### Cambios implementados
+- `/api/practicantes/buscar.js`:
+  - Query params: sortBy (nombres, apellidos, correo_institucional, numero_documento, estado_laboral, createdAt, programa)
+  - Query params: sortOrder (asc, desc)
+  - Validación de sortBy para prevenir injection
+
+- `BuscadorPracticantes.jsx`:
+  - State: sortBy (default createdAt), sortOrder (default desc)
+  - handleSortChange: toggle order si mismo field, sino cambia field a desc
+  - Expone window.onSortChangeFromBuscador para que Astro llame al sort
+  - Incluye sortBy y sortOrder en params de búsqueda
+
+- `practicantes.astro`:
+  - Headers clickeables para todas las columnas sortables
+  - Nueva columna "Fecha Creación" con formatDate()
+  - onclick handlers en headers llaman window.onSortChangeFromBuscador(field)

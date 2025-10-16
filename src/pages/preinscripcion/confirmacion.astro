@@ -1,0 +1,123 @@
+---
+import MainLayout from "~/layouts/MainLayout.astro";
+import { CheckCircle, Mail, Clock, CreditCard, ArrowRight } from "lucide-react";
+
+const nombre = Astro.url.searchParams.get('nombre') || 'Estudiante';
+---
+
+<MainLayout title="Preinscripción Exitosa | FESC">
+  <div class="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-12">
+    <div class="max-w-3xl mx-auto px-4">
+      <!-- Confirmación -->
+      <div class="bg-white rounded-2xl shadow-xl p-8 mb-6">
+        <div class="text-center mb-6">
+          <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-12 h-12 text-green-600" />
+          </div>
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">
+            ¡Preinscripción Exitosa!
+          </h1>
+          <p class="text-xl text-gray-600">
+            Gracias por completar tu preinscripción, <span class="text-accent font-semibold">{nombre}</span>
+          </p>
+        </div>
+
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded mb-6">
+          <p class="text-sm text-blue-800">
+            Tu información ha sido registrada correctamente en nuestro sistema. En breve recibirás un correo de confirmación con los siguientes pasos.
+          </p>
+        </div>
+
+        <!-- Próximos Pasos -->
+        <div class="mb-6">
+          <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <ArrowRight className="w-6 h-6 text-accent" />
+            Próximos Pasos
+          </h2>
+
+          <div class="space-y-4">
+            <!-- Paso 1 -->
+            <div class="flex gap-4 p-4 bg-gray-50 rounded-lg">
+              <div class="flex-shrink-0 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">
+                1
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                  Revisa tu correo
+                </h3>
+                <p class="text-sm text-gray-600">
+                  Te enviaremos un correo de confirmación con instrucciones detalladas a tu correo institucional.
+                </p>
+              </div>
+            </div>
+
+            <!-- Paso 2 -->
+            <div class="flex gap-4 p-4 bg-gray-50 rounded-lg">
+              <div class="flex-shrink-0 w-10 h-10 bg-yellow-500 text-white rounded-full flex items-center justify-center font-bold">
+                2
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-yellow-600" />
+                  Espera la habilitación
+                </h3>
+                <p class="text-sm text-gray-600">
+                  Cuando estés en un semestre válido, te notificaremos para que continúes con el proceso.
+                </p>
+              </div>
+            </div>
+
+            <!-- Paso 3 -->
+            <div class="flex gap-4 p-4 bg-gray-50 rounded-lg">
+              <div class="flex-shrink-0 w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">
+                3
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-green-600" />
+                  Sube tu comprobante de pago
+                </h3>
+                <p class="text-sm text-gray-600">
+                  Recibirás un enlace para subir el comprobante de pago de tu práctica. Una vez subido, será validado por nuestro equipo.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Información Importante -->
+        <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded mb-6">
+          <h3 class="font-semibold text-orange-900 mb-2">⚠️ Importante</h3>
+          <ul class="space-y-1 text-sm text-orange-800">
+            <li>• Mantén atento tu correo institucional</li>
+            <li>• No necesitas volver a llenar el formulario</li>
+            <li>• Guarda el enlace que recibirás por correo</li>
+            <li>• Si tienes dudas, contacta al departamento de prácticas</li>
+          </ul>
+        </div>
+
+        <!-- Botón de regreso -->
+        <div class="text-center">
+          <a
+            href="/"
+            class="inline-flex items-center gap-2 bg-accent text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+          >
+            Volver al Inicio
+          </a>
+        </div>
+      </div>
+
+      <!-- Footer informativo -->
+      <div class="text-center">
+        <div class="bg-white rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">¿Necesitas ayuda?</h3>
+          <p class="text-gray-600 text-sm">
+            Si tienes alguna pregunta o no recibes el correo,
+            puedes contactar al departamento de prácticas profesionales de la FESC.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</MainLayout>

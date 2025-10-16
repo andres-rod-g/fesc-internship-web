@@ -1,7 +1,51 @@
 ---
 import "~/styles/global.css";
-const { title = "Panel Administrador FESC" } = Astro.props
-import { Building, Home, Plus, Users, LogOut, User, RefreshCw, BarChart3 } from "lucide-react";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+
+const { title = "Panel Administrador FESC" } = Astro.props;
+import { Building, Home, Plus, Users, LogOut, User, RefreshCw, BarChart3, CreditCard, UserCheck, BookOpen, ClipboardList, Users as UsersIcon } from "lucide-react";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    user = null;
+  }
+}
+
+let badges = {
+  preinscripciones: 0,
+  validaciones_pago: 0,
+  estudiantes_por_crear: 0,
+};
+
+if (user) {
+  try {
+    const db = await connectDB();
+
+    badges.preinscripciones = await db.collection("practicantes").countDocuments({
+      estado_preinscripcion: "preinscrito"
+    });
+
+    badges.validaciones_pago = await db.collection("practicantes").countDocuments({
+      estado_preinscripcion: "pago_pendiente",
+      "validacion_pago.estado": "pendiente"
+    });
+
+    if (user.role === "admin") {
+      badges.estudiantes_por_crear = await db.collection("practicantes").countDocuments({
+        estado_preinscripcion: "pago_validado",
+        "validacion_pago.estado": "aprobado"
+      });
+    }
+  } catch (error) {
+    console.error("Error al obtener badges:", error);
+  }
+}
 ---
 <html lang="es">
   <head>
@@ -28,35 +72,116 @@ import { Building, Home, Plus, Users, LogOut, User, RefreshCw, BarChart3 } from 
       
       <!-- Navegación -->
       <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-        <a href="/admin/dashboard" 
-           class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
-          <Home className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span class="font-medium">Dashboard</span>
-        </a>
-        
-        <a href="/admin/nuevo-practicante" 
-           class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
-          <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span class="font-medium">Nuevo Practicante</span>
-        </a>
-        
-        <a href="/admin/practicantes" 
-           class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
-          <Users className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span class="font-medium">Practicantes</span>
-        </a>
-        
-        <a href="/admin/empresas" 
-           class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
-          <Building className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span class="font-medium">Empresas</span>
-        </a>
-        
-        <a href="/admin/estadisticas-css" 
-           class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
-          <BarChart3 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-          <span class="font-medium">Estadísticas</span>
-        </a>
+        <!-- Dashboard solo para admin -->
+        {user?.role === "admin" && (
+          <a href="/admin/dashboard"
+             class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+            <Home className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span class="font-medium">Dashboard</span>
+          </a>
+        )}
+
+        <!-- Registro y Control: SOLO VE Validar Pagos -->
+        {user?.role === "registro_control" && (
+          <a href="/admin/validaciones-pago"
+             class="flex items-center justify-between text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+            <div class="flex items-center gap-3">
+              <CreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              <span class="font-medium">Validar Pagos</span>
+            </div>
+            {badges.validaciones_pago > 0 && (
+              <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-yellow-600 rounded-full">
+                {badges.validaciones_pago}
+              </span>
+            )}
+          </a>
+        )}
+
+        <!-- Admin ve todo -->
+        {user?.role === "admin" && (
+          <>
+            <div class="pt-2 pb-2">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Preinscripciones</p>
+
+              <a href="/admin/practicantes"
+                 class="flex items-center justify-between text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+                <div class="flex items-center gap-3">
+                  <ClipboardList className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span class="font-medium">Preinscripciones</span>
+                </div>
+                {badges.preinscripciones > 0 && (
+                  <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-blue-600 rounded-full">
+                    {badges.preinscripciones}
+                  </span>
+                )}
+              </a>
+
+              <a href="/admin/validaciones-pago"
+                 class="flex items-center justify-between text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+                <div class="flex items-center gap-3">
+                  <CreditCard className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span class="font-medium">Validar Pagos</span>
+                </div>
+                {badges.validaciones_pago > 0 && (
+                  <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-yellow-600 rounded-full">
+                    {badges.validaciones_pago}
+                  </span>
+                )}
+              </a>
+
+              <a href="/admin/estudiantes-por-crear"
+                 class="flex items-center justify-between text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+                <div class="flex items-center gap-3">
+                  <UserCheck className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span class="font-medium">Crear Estudiantes</span>
+                </div>
+                {badges.estudiantes_por_crear > 0 && (
+                  <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-green-600 rounded-full">
+                    {badges.estudiantes_por_crear}
+                  </span>
+                )}
+              </a>
+            </div>
+
+            <div class="pt-2 pb-2">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Gestión</p>
+
+              <a href="/admin/usuarios"
+                 class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+                <Users className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span class="font-medium">Usuarios</span>
+              </a>
+
+              <a href="/admin/nuevo-practicante"
+                 class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span class="font-medium">Nuevo Practicante</span>
+              </a>
+
+              <a href="/admin/empresas"
+                 class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+                <Building className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span class="font-medium">Empresas</span>
+              </a>
+
+              <a href="/admin/estadisticas-css"
+                 class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+                <BarChart3 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span class="font-medium">Estadísticas</span>
+              </a>
+            </div>
+
+            <div class="pt-2">
+              <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Ayuda</p>
+
+              <a href="/admin/documentacion-flujo"
+                 class="flex items-center gap-3 text-gray-700 hover:bg-gray-100 hover:text-accent rounded-lg px-3 py-2 transition-all duration-200 group">
+                <BookOpen className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span class="font-medium">Documentación</span>
+              </a>
+            </div>
+          </>
+        )}
       </nav>
       
       <!-- Footer de la sidebar -->

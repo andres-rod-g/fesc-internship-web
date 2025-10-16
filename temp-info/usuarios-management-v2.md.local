@@ -1,0 +1,69 @@
+## USUARIOS MANAGEMENT - V2 UPDATE (Modal Edition)
+
+### CAMBIOS IMPLEMENTADOS
+
+#### Backend APIs
+1. **POST /api/usuarios/crear** (Admin-only)
+   - Crea usuarios con role, username, password (hashed), email, nombres, apellidos
+
+2. **GET /api/usuarios/listar** (Admin-only)
+   - Lista todos los usuarios sin passwords
+
+3. **GET /api/usuarios/buscar** (Admin-only)
+   - Query parameters: `q` (search term), `rol` (filter)
+   - Búsqueda regex en: username, email, nombres, apellidos
+   - Retorna max 100 resultados
+
+4. **PUT /api/usuarios/[id]** (Admin-only)
+   - Edita nombres, apellidos, email
+   - Valida email unique
+
+5. **DELETE /api/usuarios/[id]** (Admin-only)
+   - Elimina usuario
+   - Previene auto-eliminación
+
+6. **PATCH /api/usuarios/[id]** (Admin-only, NEW)
+   - Resetea/genera nueva contraseña segura (12 chars + symbols)
+   - Retorna newPassword en response
+   - Hash con bcrypt(10)
+   - Body: {} (vacío - no necesita params)
+
+#### Frontend Components
+1. **ListaUsuarios.jsx**
+   - Tabla simple con usuarios
+   - Debounced search (500ms) + role filter
+   - Botones Edit/Delete sin inline form
+   - Estado: modalOpen, selectedUsuario
+
+2. **ModalEditarUsuario.jsx** (NEW)
+   - Modal popup para editar usuario
+   - Inputs: nombres, apellidos, email
+   - Botón "Generar nueva contraseña" separado
+   - Muestra password generada con:
+     - Input readonly con toggle show/hide
+     - Botón copy to clipboard
+     - Warning: "No se volverá a mostrar"
+   - Three buttons: Guardar cambios, Generar contraseña, Cerrar
+
+### FUNCIONALIDAD
+✓ Search por nombre/email/usuario con debounce 500ms
+✓ Filter por rol
+✓ Editar datos básicos en modal
+✓ Generar nueva contraseña con confirmación
+✓ Ver/ocultar/copiar contraseña
+✓ Eliminar usuarios con confirmación
+✓ Admin-only en todos endpoints
+
+### FLOW USER
+1. Admin ve tabla de usuarios
+2. Escribe en search → debounce 500ms → consulta DB
+3. Selecciona rol → debounce 500ms → consulta DB
+4. Click Edit → Modal se abre
+5. En Modal:
+   - Puede editar nombres/apellidos/email
+   - Click "Guardar cambios" → PUT
+   - Click "Generar contraseña" → POST resetear
+   - Ve nueva contraseña generada
+   - Puede copiar/ver/ocultar
+6. Click Delete en tabla → Confirm → DELETE
+7. Click Cerrar en modal → Cierra y recarga lista

@@ -1,0 +1,120 @@
+---
+import MainLayout from "~/layouts/MainLayout.astro";
+import { CheckCircle, Clock, Mail } from "lucide-react";
+---
+
+<MainLayout title="Comprobante Subido Exitosamente | FESC">
+  <div class="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-12">
+    <div class="max-w-3xl mx-auto px-4">
+      <!-- Confirmación -->
+      <div class="bg-white rounded-2xl shadow-xl p-8 mb-6">
+        <div class="text-center mb-6">
+          <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-12 h-12 text-green-600" />
+          </div>
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">
+            ¡Comprobante Recibido!
+          </h1>
+          <p class="text-xl text-gray-600">
+            Tu comprobante de pago ha sido subido exitosamente
+          </p>
+        </div>
+
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded mb-6">
+          <p class="text-sm text-blue-800">
+            Hemos recibido tu comprobante de pago. Nuestro equipo administrativo lo revisará y validará en las próximas horas.
+          </p>
+        </div>
+
+        <!-- Próximos Pasos -->
+        <div class="mb-6">
+          <h2 class="text-xl font-bold text-gray-800 mb-4">
+            ¿Qué sigue ahora?
+          </h2>
+
+          <div class="space-y-4">
+            <!-- Paso 1 -->
+            <div class="flex gap-4 p-4 bg-gray-50 rounded-lg">
+              <div class="flex-shrink-0 w-10 h-10 bg-yellow-500 text-white rounded-full flex items-center justify-center font-bold">
+                1
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-yellow-600" />
+                  Validación del Comprobante
+                </h3>
+                <p class="text-sm text-gray-600">
+                  El equipo administrativo revisará tu comprobante de pago. Esto puede tardar entre 24 a 48 horas hábiles.
+                </p>
+              </div>
+            </div>
+
+            <!-- Paso 2 -->
+            <div class="flex gap-4 p-4 bg-gray-50 rounded-lg">
+              <div class="flex-shrink-0 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">
+                2
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                  Notificación por Correo
+                </h3>
+                <p class="text-sm text-gray-600">
+                  Recibirás un correo electrónico cuando tu comprobante sea validado. Revisa tu bandeja de entrada y spam.
+                </p>
+              </div>
+            </div>
+
+            <!-- Paso 3 -->
+            <div class="flex gap-4 p-4 bg-gray-50 rounded-lg">
+              <div class="flex-shrink-0 w-10 h-10 bg-green-500 text-white rounded-full flex items-center justify-center font-bold">
+                3
+              </div>
+              <div>
+                <h3 class="font-semibold text-gray-800 mb-1 flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  Creación de tu Usuario
+                </h3>
+                <p class="text-sm text-gray-600">
+                  Una vez validado el pago, se creará tu usuario en el sistema y recibirás tus credenciales de acceso por correo.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Información Importante -->
+        <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded mb-6">
+          <h3 class="font-semibold text-orange-900 mb-2">⚠️ Importante</h3>
+          <ul class="space-y-1 text-sm text-orange-800">
+            <li>• Mantén atento tu correo institucional</li>
+            <li>• No necesitas volver a subir el comprobante</li>
+            <li>• Si tu comprobante es rechazado, recibirás instrucciones para corregirlo</li>
+            <li>• Si tienes dudas, contacta al departamento de prácticas</li>
+          </ul>
+        </div>
+
+        <!-- Botón de regreso -->
+        <div class="text-center">
+          <a
+            href="/"
+            class="inline-flex items-center gap-2 bg-accent text-white px-6 py-3 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+          >
+            Volver al Inicio
+          </a>
+        </div>
+      </div>
+
+      <!-- Footer informativo -->
+      <div class="text-center">
+        <div class="bg-white rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">¿Necesitas ayuda?</h3>
+          <p class="text-gray-600 text-sm">
+            Si tienes alguna pregunta o necesitas asistencia,
+            puedes contactar al departamento de prácticas profesionales de la FESC.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</MainLayout>

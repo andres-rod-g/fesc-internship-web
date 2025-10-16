@@ -1,0 +1,59 @@
+# USER MANAGEMENT - Gestión de Usuarios
+
+## 📋 NUEVA FUNCIONALIDAD
+- **Página**: `/admin/usuarios`
+- **Acceso**: Solo admin
+- **Descripción**: Crear y gestionar usuarios manualmente con diferentes roles
+
+## 🔧 ARCHIVOS CREADOS
+
+### APIs
+- `src/pages/api/usuarios/crear.js` - POST crear usuario
+- `src/pages/api/usuarios/listar.js` - GET listar todos usuarios
+
+### Componentes React
+- `src/components/admin/CrearUsuarioForm.jsx` - Formulario crear usuario
+- `src/components/admin/ListaUsuarios.jsx` - Tabla de usuarios
+
+### Páginas
+- `src/pages/admin/usuarios.astro` - Page principal
+
+## 👥 ROLES DISPONIBLES
+
+1. **Administrador** (`admin`)
+   - Acceso total
+   - Puede crear usuarios
+   - Puede crear estudiantes
+   - Puede validar pagos
+
+2. **Registro y Control** (`registro_control`)
+   - Ver preinscripciones
+   - Validar pagos
+   - No puede crear usuarios
+
+3. **Estudiante** (`estudiante`)
+   - Acceso limitado
+   - Solo ve su información
+
+## 📌 CAMPOS AL CREAR USUARIO
+- Nombres (opcional)
+- Apellidos (opcional)
+- Username * (requerido, debe ser único)
+- Email (opcional)
+- Contraseña * (mínimo 6 caracteres)
+- Rol * (admin, registro_control, estudiante)
+
+## 🔐 SEGURIDAD
+- Rate limiting: 30 req/5min por IP
+- Contraseñas hasheadas con bcrypt (10 salts)
+- Validación temprana de datos
+- Solo admin puede crear
+- No mostrar contraseña en alerts
+
+## 🎯 FLUJO USUARIO
+1. Admin va a `/admin/usuarios`
+2. Completa formulario con datos
+3. Puede generar contraseña automática (12 chars)
+4. Clic en "Crear Usuario"
+5. Éxito → aparece en tabla abajo
+6. Usar "Actualizar" para refrescar lista

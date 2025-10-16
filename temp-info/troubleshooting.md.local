@@ -1,0 +1,92 @@
+# TROUBLESHOOTING
+
+## PROBLEMAS COMUNES Y SOLUCIONES
+
+### Stage 1: Preinscripción no se guarda
+- ✓ Verificar campos requeridos completos
+- ✓ Validar formato de correo institucional
+- ✓ Comprobar tamaño de foto (max 5MB)
+- ✓ Revisar conexión a MongoDB
+- ✓ Verificar que informacion_academica tenga al menos 1 entrada
+
+### Stage 2: No puede subir comprobante
+- ✓ Verificar token válido y no expirado
+- ✓ Comprobar estado = "preinscrito"
+- ✓ Validar formato imagen (JPG/PNG)
+- ✓ Verificar tamaño max 5MB
+- ✓ Revisar permisos de escritura en storage
+
+### Stage 2: No aparece en validaciones pendientes
+- ✓ Estado debe ser "pago_pendiente"
+- ✓ validacion_pago.estado = "pendiente"
+- ✓ Refrescar página o limpiar cache
+- ✓ Verificar filtros aplicados en tabla
+
+### Stage 3: No puede crear estudiante
+- ✓ Verificar rol = "admin" (no registro_control)
+- ✓ Estado debe ser "pago_validado"
+- ✓ Número documento no debe existir en users
+- ✓ Contraseña debe cumplir requisitos mínimos
+
+### Usuario estudiante no puede acceder
+- ✓ Verificar credenciales enviadas por email
+- ✓ Comprobar que usuario existe en collection users
+- ✓ Validar hash de contraseña correcto
+- ✓ Verificar role = "estudiante"
+- ✓ practicante_id debe existir y ser válido
+
+### Badges no muestran contadores correctos
+- ✓ Verificar queries de agregación en dashboard
+- ✓ Limpiar cache de navegador
+- ✓ Revisar permisos del usuario logueado
+- ✓ Comprobar estados en base de datos
+
+### Email no se envía
+- ✓ Configurar variables de entorno SMTP
+- ✓ Verificar correo destinatario válido
+- ✓ Revisar logs de servidor
+- ✓ Comprobar límites de servicio email
+
+## VALIDACIONES IMPORTANTES
+
+### Orden de estados (no se puede saltar)
+1. null/undefined → preinscrito
+2. preinscrito → pago_pendiente
+3. pago_pendiente → pago_validado o rechazado
+4. pago_validado → estudiante_creado
+
+### Documentos únicos
+- numero_documento debe ser único en practicantes
+- numero_documento debe ser único en users
+- correo_institucional único por preinscripción
+
+### Archivos
+- Foto: max 5MB, imagen (jpg/png/gif)
+- Comprobante: max 5MB, imagen (jpg/png)
+- Firma: generada en canvas o subida (png/jpg)
+
+## COMANDOS ÚTILES
+
+### Ver estado de preinscripción
+```js
+db.practicantes.findOne({numero_documento: "123456"})
+```
+
+### Cambiar estado manualmente (emergencia)
+```js
+db.practicantes.updateOne(
+  {numero_documento: "123456"},
+  {$set: {estado_preinscripcion: "pago_validado"}}
+)
+```
+
+### Crear usuario admin manualmente
+```js
+// Usar script de creación de admin
+node scripts/create-admin.js
+```
+
+### Verificar contadores
+```js
+db.practicantes.countDocuments({estado_preinscripcion: "pago_pendiente"})
+```

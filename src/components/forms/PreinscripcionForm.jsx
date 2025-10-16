@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { AlertCircle, CheckCircle, Loader2, Plus, Minus, Upload, X } from "lucide-react";
 
-export default function PracticanteForm() {
+export default function PreinscripcionForm() {
   const [form, setForm] = useState({
     // Información Personal
     programa: "",
@@ -166,38 +166,49 @@ export default function PracticanteForm() {
     }
   }, []);
 
+  const getCoordinates = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    if (e.touches && e.touches[0]) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY
+      };
+    }
+
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    };
+  };
+
   const startDrawing = (e) => {
+    e.preventDefault();
     setIsDrawing(true);
     setFirmaModificada(true);
     const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
+    const coords = getCoordinates(e);
     ctx.beginPath();
-    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+    ctx.moveTo(coords.x, coords.y);
   };
 
   const draw = (e) => {
     if (!isDrawing) return;
+    e.preventDefault();
     const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
-    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+    const coords = getCoordinates(e);
+    ctx.lineTo(coords.x, coords.y);
     ctx.stroke();
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e) => {
+    if (e) e.preventDefault();
     setIsDrawing(false);
-  };
-
-  const handleTouch = (e) => {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const mouseEvent = new MouseEvent(e.type === 'touchstart' ? 'mousedown' : 
-                                     e.type === 'touchmove' ? 'mousemove' : 'mouseup', {
-      clientX: touch.clientX,
-      clientY: touch.clientY
-    });
-    canvasRef.current.dispatchEvent(mouseEvent);
   };
 
   const limpiarFirma = () => {
@@ -283,58 +294,28 @@ export default function PracticanteForm() {
       });
 
       
-      const res = await fetch("/api/practicantes", {
+      const res = await fetch("/api/preinscripciones", {
         method: "POST",
         body: formData,
       });
-      
+
       if (res.ok) {
-        setSuccess("¡Registro enviado correctamente! Tu hoja de vida ha sido registrada en el sistema.");
-        // Reset form
-        setForm({
-          programa: "",
-          ciclo: "",
-          modalidad: [],
-          foto: null,
-          nombres: "",
-          apellidos: "",
-          tipo_documento: "",
-          numero_documento: "",
-          fecha_nacimiento: "",
-          lugar_nacimiento: "",
-          direccion_residencia: "",
-          telefono_fijo: "",
-          telefono_celular: "",
-          correo_institucional: "",
-          correo_personal: "",
-          estado_laboral: "",
-          informacion_academica: [{
-            tipo: "",
-            institucion: "",
-            titulo: "",
-            anio_finalizacion: ""
-          }],
-          perfil_profesional: "",
-          herramientas: [""],
-          experiencia_laboral: [],
-          firma_png: null
-        });
-        
-        // Resetear input de archivo
-        const fotoInput = document.getElementById('foto');
-        if (fotoInput) {
-          fotoInput.value = '';
-        }
-        
-        // Limpiar canvas de firma
-        if (canvasRef.current) {
-          const ctx = canvasRef.current.getContext('2d');
-          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        }
-        setFirmaModificada(false);
+        const nombreCompleto = `${form.nombres} ${form.apellidos}`;
+        window.location.href = `/preinscripcion/confirmacion?nombre=${encodeURIComponent(nombreCompleto)}`;
       } else {
         const data = await res.json();
-        setError(data.error || "Error al registrar la hoja de vida.");
+
+        // Manejo específico de rate limit
+        if (data.code === "RATE_LIMIT_EXCEEDED" || res.status === 429) {
+          const details = data.details || {};
+          setError(
+            `⚠️ Límite de solicitudes alcanzado\n\n` +
+            `${details.message || data.error}\n\n` +
+            `Por favor, intenta de nuevo en ${details.retryAfter || 'algunos'} segundos.`
+          );
+        } else {
+          setError(data.error || "Error al registrar la preinscripción.");
+        }
       }
     } catch (err) {
       setError("Error de conexión al servidor. Por favor intenta nuevamente.");
@@ -346,8 +327,8 @@ export default function PracticanteForm() {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Hoja de Vida - Registro de Practicante</h2>
-        <p className="text-gray-600">Complete todos los campos para crear tu hoja de vida profesional</p>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">Preinscripción a Prácticas Profesionales</h2>
+        <p className="text-gray-600">Completa todos los campos para realizar tu preinscripción. Este es el primer paso del proceso.</p>
       </div>
       
       <form className="space-y-8" onSubmit={handleSubmit}>
@@ -964,18 +945,18 @@ export default function PracticanteForm() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Dibuja tu firma digital
               </label>
-              <canvas 
+              <canvas
                 ref={canvasRef}
-                width="400" 
-                height="200" 
-                className="border border-gray-300 rounded-lg cursor-crosshair bg-white"
-                style={{ touchAction: 'none' }}
+                width="400"
+                height="200"
+                className="border border-gray-300 rounded-lg cursor-crosshair bg-white w-full max-w-full"
+                style={{ touchAction: 'none', maxWidth: '100%' }}
                 onMouseDown={startDrawing}
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
                 onMouseOut={stopDrawing}
-                onTouchStart={handleTouch}
-                onTouchMove={handleTouch}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
                 onTouchEnd={stopDrawing}
               />
               

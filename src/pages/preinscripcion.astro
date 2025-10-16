@@ -1,24 +1,23 @@
 ---
 import MainLayout from "~/layouts/MainLayout.astro";
-import PracticanteForm from "~/components/PracticanteForm.jsx";
-import { Plus, ArrowLeft } from "lucide-react";
+import PreinscripcionForm from "~/components/forms/PreinscripcionForm.jsx";
+import { ClipboardCheck, ArrowLeft } from "lucide-react";
 ---
-<MainLayout title="Registro de Practicante | FESC">
+<MainLayout title="Preinscripción a Prácticas | FESC">
   <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
     <div class="max-w-4xl mx-auto px-4">
       <!-- Header público -->
       <div class="text-center mb-8">
         <div class="flex justify-center mb-6">
           <div class="w-16 h-16 bg-accent rounded-full flex items-center justify-center shadow-lg">
-            <Plus className="w-8 h-8 text-white" />
+            <ClipboardCheck className="w-8 h-8 text-white" />
           </div>
         </div>
         <h1 class="text-4xl font-bold text-gray-800 mb-4">
-          Registro de <span class="text-accent">Practicante</span>
+          Preinscripción a <span class="text-accent">Prácticas Profesionales</span>
         </h1>
         <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-          Completa este formulario para registrarte como practicante en una empresa externa. 
-          Todos los campos marcados con (*) son obligatorios.
+          Este es el primer paso para tu proceso de prácticas. Completa el formulario y recibirás instrucciones para los siguientes pasos.
         </p>
       </div>
 
@@ -29,8 +28,8 @@ import { Plus, ArrowLeft } from "lucide-react";
           Volver al inicio
         </a>
       </div>
-      
-      <PracticanteForm client:only="react" />
+
+      <PreinscripcionForm client:only="react" />
       
       <!-- Footer informativo -->
       <div class="mt-8 text-center">

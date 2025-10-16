@@ -1,0 +1,67 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import ListaEstudiantesPorCrear from "~/components/admin/ListaEstudiantesPorCrear.jsx";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (user.role !== "admin") {
+  return Astro.redirect("/admin/dashboard");
+}
+
+const db = await connectDB();
+
+const practicantesValidados = await db
+  .collection("practicantes")
+  .find({
+    estado_preinscripcion: "pago_validado",
+    "validacion_pago.estado": "aprobado"
+  })
+  .sort({ "validacion_pago.fecha_validacion": -1 })
+  .toArray();
+
+// Convertir ObjectId a string para pasar a React
+const practicantesJson = practicantesValidados.map((p) => ({
+  ...p,
+  _id: p._id.toString()
+}));
+---
+
+<AdminLayout title="Estudiantes por Crear | FESC">
+  <div class="space-y-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-800">
+            Estudiantes por Crear
+          </h1>
+          <p class="text-gray-600 mt-1">
+            Practicantes con pago validado pendientes de creación de usuario
+          </p>
+        </div>
+        <span
+          class="px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold"
+        >
+          {practicantesValidados.length} listos
+        </span>
+      </div>
+    </div>
+
+    <ListaEstudiantesPorCrear client:load practicantes={practicantesJson} />
+  </div>
+</AdminLayout>

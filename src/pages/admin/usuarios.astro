@@ -1,0 +1,83 @@
+---
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import GestorUsuarios from "../../components/admin/GestorUsuarios.jsx";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    user = null;
+  }
+}
+
+// Solo admin puede acceder
+if (!user || user.role !== "admin") {
+  return Astro.redirect("/login");
+}
+---
+
+<AdminLayout title="Gestión de Usuarios | FESC">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Gestión de Usuarios</h1>
+      <p class="text-gray-600">
+        Crea y administra usuarios del sistema con diferentes roles y permisos.
+      </p>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Gestor de Usuarios (2/3) -->
+      <div class="lg:col-span-2">
+        <GestorUsuarios client:load />
+      </div>
+
+      <!-- Info Lateral (1/3) -->
+      <div class="space-y-6">
+        <!-- Información de Roles -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4">Roles Disponibles</h3>
+          <div class="space-y-4">
+            <div class="p-3 bg-red-50 rounded-lg border border-red-200">
+              <p class="text-sm font-semibold text-red-900">👨‍💼 Administrador</p>
+              <p class="text-xs text-red-700 mt-1">
+                Acceso total al sistema, puede crear usuarios y gestionar todo.
+              </p>
+            </div>
+
+            <div class="p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <p class="text-sm font-semibold text-blue-900">📋 Registro y Control</p>
+              <p class="text-xs text-blue-700 mt-1">
+                Puede validar pagos y ver preinscripciones, pero no crear usuarios.
+              </p>
+            </div>
+
+            <div class="p-3 bg-green-50 rounded-lg border border-green-200">
+              <p class="text-sm font-semibold text-green-900">👤 Estudiante</p>
+              <p class="text-xs text-green-700 mt-1">
+                Acceso limitado al sistema, solo puede ver su información.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="bg-yellow-50 rounded-xl border border-yellow-200 p-4">
+          <h4 class="text-sm font-semibold text-yellow-900 mb-2">⚠️ Tips</h4>
+          <ul class="text-xs text-yellow-800 space-y-2">
+            <li>• Haz clic en "Crear Usuario"</li>
+            <li>• Completa los datos en el modal</li>
+            <li>• Genera contraseña segura automáticamente</li>
+            <li>• La lista se actualiza automáticamente</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>

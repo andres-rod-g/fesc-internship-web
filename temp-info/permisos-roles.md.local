@@ -1,0 +1,42 @@
+✅ RESTRICCIÓN DE PERMISOS POR ROL
+
+## CAMBIOS REALIZADOS
+
+### AdminLayout.astro
+- Menú completamente diferente por rol
+- **Admin**: Ve todo (Dashboard, Preinscripciones, Validar Pagos, Crear Estudiantes, Gestión, Ayuda)
+- **Registro y Control**: SOLO ve "Validar Pagos"
+- Sidebar se adapta automáticamente según rol
+
+### practicantes.astro (PÁGINA)
+- Agregó validación: solo admin puede acceder
+- registro_control redirigido a `/admin/validaciones-pago`
+
+## MATRIZ DE PERMISOS
+
+| Página/Función | Admin | Reg.Control | Estudiante |
+|---|---|---|---|
+| Dashboard | ✅ | ❌ | ❌ |
+| Preinscripciones | ✅ | ❌ | ❌ |
+| Validar Pagos | ✅ | ✅ | ❌ |
+| Crear Estudiantes | ✅ | ❌ | ❌ |
+| Usuarios | ✅ | ❌ | ❌ |
+| Nuevo Practicante | ✅ | ❌ | ❌ |
+| Empresas | ✅ | ❌ | ❌ |
+| Estadísticas | ✅ | ❌ | ❌ |
+
+## RUTAS SEGURAS
+
+- `registro_control` intenta acceder a otra ruta → redirige a `/admin/validaciones-pago`
+- Solo puede validar pagos y ver la documentación de flujo
+
+## IMPLEMENTACIÓN
+
+1. **Menú dinámico** en AdminLayout
+2. **Validación backend** en páginas críticas
+3. **API validations** ya existían (roles: admin, registro_control, estudiante)
+
+## FUNCIONALIDAD PRESERVADA
+
+✓ registro_control CAN: validar pagos, ver comprobantes, aprobar/rechazar
+✓ Admin CAN: acceder a todo, crear usuarios, gestionar empresa, etc.
