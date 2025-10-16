@@ -71,6 +71,39 @@ if (user.role !== "admin") {
   let currentPage = 1;
   window.currentResults = [];
   window.currentPagination = null;
+  let sortField = "createdAt";
+  let sortDirection = "desc";
+
+  function sortData(data, field, direction) {
+    const sorted = [...data].sort((a, b) => {
+      let valueA = a[field] || "";
+      let valueB = b[field] || "";
+
+      // Handle dates
+      if (field === "createdAt") {
+        valueA = new Date(valueA).getTime();
+        valueB = new Date(valueB).getTime();
+      } else if (typeof valueA === "string") {
+        valueA = valueA.toLowerCase();
+        valueB = valueB.toLowerCase();
+      }
+
+      if (valueA < valueB) return direction === "asc" ? -1 : 1;
+      if (valueA > valueB) return direction === "asc" ? 1 : -1;
+      return 0;
+    });
+    return sorted;
+  }
+
+  window.handleSort = (field) => {
+    if (sortField === field) {
+      sortDirection = sortDirection === "asc" ? "desc" : "asc";
+    } else {
+      sortField = field;
+      sortDirection = "asc";
+    }
+    updateTablaVista();
+  };
 
   function updateTablaVista() {
     const tablaContainer = document.getElementById('tabla-container');
@@ -84,17 +117,30 @@ if (user.role !== "admin") {
       return;
     }
 
+    // Sort the data
+    const sortedData = sortData(window.currentResults, sortField, sortDirection);
+
     // Generar tabla HTML
     let html = `
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Practicante</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Correo</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cédula</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Laboral</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Creación</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('nombres')">
+                Practicante ${sortField === 'nombres' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('correo_institucional')">
+                Correo ${sortField === 'correo_institucional' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('numero_documento')">
+                Cédula ${sortField === 'numero_documento' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('estado_laboral')">
+                Estado Laboral ${sortField === 'estado_laboral' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('createdAt')">
+                Fecha Creación ${sortField === 'createdAt' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gestión</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
@@ -102,7 +148,7 @@ if (user.role !== "admin") {
           <tbody class="bg-white divide-y divide-gray-200">
     `;
 
-    window.currentResults.forEach(p => {
+    sortedData.forEach(p => {
       const estadoLaboralColors = {
         'seeking_internship': 'bg-blue-100 text-blue-800',
         'working': 'bg-green-100 text-green-800',
