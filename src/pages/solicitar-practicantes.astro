@@ -1,0 +1,80 @@
+---
+import MainLayout from "~/layouts/MainLayout.astro";
+import { ClipboardList, Building2, ArrowRight } from "lucide-react";
+---
+
+<MainLayout title="Solicitar Practicantes | FESC">
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+    <div class="max-w-4xl mx-auto px-4">
+      <!-- Header público -->
+      <div class="text-center mb-8">
+        <div class="flex justify-center mb-6">
+          <div class="w-16 h-16 bg-accent rounded-full flex items-center justify-center shadow-lg">
+            <Building2 className="w-8 h-8 text-white" />
+          </div>
+        </div>
+        <h1 class="text-4xl font-bold text-gray-800 mb-4">
+          Solicitud de <span class="text-accent">Practicantes</span>
+        </h1>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+          Complete este formato para solicitar estudiantes en etapa práctica para su empresa. Nuestro equipo revisará su solicitud y se pondrá en contacto.
+        </p>
+      </div>
+
+      <!-- Información importante -->
+      <div class="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-lg mb-8 max-w-2xl mx-auto">
+        <h3 class="font-semibold text-blue-900 mb-2">📋 Requisitos previos</h3>
+        <ul class="space-y-2 text-sm text-blue-800">
+          <li>• Su empresa debe contar con convenio vigente de prácticas con FESC</li>
+          <li>• Revisar perfiles de egreso en www.fesc.edu.co</li>
+          <li>• Tener disponible información completa de la empresa y responsable</li>
+          <li>• Describir claramente el perfil y funciones del practicante</li>
+        </ul>
+      </div>
+
+      <!-- Botón para iniciar -->
+      <div class="text-center">
+        <a
+          href="/solicitar-practicantes/formulario"
+          class="inline-flex items-center gap-2 bg-accent text-white px-8 py-4 rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-lg"
+        >
+          <ClipboardList className="w-5 h-5" />
+          Iniciar Solicitud
+          <ArrowRight className="w-5 h-5" />
+        </a>
+      </div>
+
+      <!-- Información adicional -->
+      <div class="mt-12 grid md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+          <div class="text-3xl font-bold text-accent mb-2">1</div>
+          <h3 class="font-semibold text-gray-800 mb-2">Datos de la Empresa</h3>
+          <p class="text-sm text-gray-600">Complete la información general de su empresa y responsable de la solicitud</p>
+        </div>
+
+        <div class="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+          <div class="text-3xl font-bold text-accent mb-2">2</div>
+          <h3 class="font-semibold text-gray-800 mb-2">Información del Perfil</h3>
+          <p class="text-sm text-gray-600">Especifique el programa, cargo, modalidad y detalles del practicante requerido</p>
+        </div>
+
+        <div class="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+          <div class="text-3xl font-bold text-accent mb-2">3</div>
+          <h3 class="font-semibold text-gray-800 mb-2">Confirmación</h3>
+          <p class="text-sm text-gray-600">Revise su solicitud y reciba confirmación del envío exitoso</p>
+        </div>
+      </div>
+
+      <!-- Footer informativo -->
+      <div class="mt-12 text-center">
+        <div class="bg-white rounded-xl p-6">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">¿Necesita ayuda?</h3>
+          <p class="text-gray-600 text-sm">
+            Si tiene preguntas o necesita asistencia,
+            puede contactar al departamento de prácticas profesionales de la FESC.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</MainLayout>

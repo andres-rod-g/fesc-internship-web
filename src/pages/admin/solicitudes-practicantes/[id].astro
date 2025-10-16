@@ -1,0 +1,67 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import DetallesSolicitudPracticantes from "~/components/admin/DetallesSolicitudPracticantes.jsx";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    user = null;
+  }
+}
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (user.role !== "director" && user.role !== "admin") {
+  return Astro.redirect("/admin/solicitudes-practicantes");
+}
+
+const { id } = Astro.params;
+let solicitud = null;
+let error = null;
+
+try {
+  const db = await connectDB();
+  solicitud = await db.collection("solicitudes_practicantes").findOne({ _id: new ObjectId(id) });
+
+  if (!solicitud) {
+    error = "Solicitud no encontrada";
+  }
+} catch (err) {
+  console.error("Error al obtener solicitud:", err);
+  error = "Error al cargar la solicitud";
+}
+---
+
+<AdminLayout title={`Solicitud ${solicitud?.nombre_empresa || 'No encontrada'} | FESC`}>
+  {error ? (
+    <div class="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-lg">
+      <p>{error}</p>
+      <a href="/admin/solicitudes-practicantes" class="text-red-700 hover:text-red-800 font-semibold mt-2 inline-block">
+        Volver a solicitudes
+      </a>
+    </div>
+  ) : solicitud ? (
+    <>
+      <div class="mb-6">
+        <a href="/admin/solicitudes-practicantes" class="text-accent hover:text-red-700 font-medium inline-flex items-center gap-2">
+          ← Volver a solicitudes
+        </a>
+      </div>
+
+      <DetallesSolicitudPracticantes client:load solicitud={solicitud} />
+    </>
+  ) : (
+    <div class="text-center py-12">
+      <p class="text-gray-600">Cargando...</p>
+    </div>
+  )}
+</AdminLayout>

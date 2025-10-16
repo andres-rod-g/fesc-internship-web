@@ -9,6 +9,8 @@ export default function BuscadorPracticantes({
   const [searchTerm, setSearchTerm] = useState("");
   const [pagoFilter, setPagoFilter] = useState("");
   const [usuarioFilter, setUsuarioFilter] = useState("");
+  const [estadoFilter, setEstadoFilter] = useState("");
+  const [estadoPracticaFilter, setEstadoPracticaFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -16,7 +18,7 @@ export default function BuscadorPracticantes({
   const [sortOrder, setSortOrder] = useState("desc");
   const debounceTimer = useRef(null);
 
-  const buscarPracticantes = async (term, pago, usuario, page, sort = sortBy, order = sortOrder) => {
+  const buscarPracticantes = async (term, pago, usuario, estado, estadoPractica, page, sort = sortBy, order = sortOrder) => {
     try {
       setLoading(true);
       setError("");
@@ -25,6 +27,8 @@ export default function BuscadorPracticantes({
       if (term) params.append("q", term);
       if (pago) params.append("pago", pago);
       if (usuario) params.append("usuario", usuario);
+      if (estado) params.append("estado", estado);
+      if (estadoPractica) params.append("estado_practica", estadoPractica);
       params.append("page", page);
       params.append("sortBy", sort);
       params.append("sortOrder", order);
@@ -37,23 +41,43 @@ export default function BuscadorPracticantes({
       if (res.ok) {
         const data = await res.json();
         console.log("Data recibida:", data);
+        if (data.practicantes && data.practicantes.length > 0) {
+          console.log("Primer practicante:", data.practicantes[0]);
+          console.log("Campos disponibles:", Object.keys(data.practicantes[0]));
+        }
 
         // Put data in window and dispatch events so Astro script can listen
         window.currentResults = data.practicantes;
         window.currentPagination = data.pagination;
 
         console.log("Actualizando tabla con", data.practicantes.length, "resultados");
+        console.log("window.updateTablaVista existe?", typeof window.updateTablaVista);
+        console.log("window.currentResults:", window.currentResults);
 
-        // Dispatch custom event for Astro script to listen
-        if (window.updateTablaVista) {
-          console.log("Llamando updateTablaVista");
-          window.updateTablaVista();
-        }
+        // Dispatch custom event for Astro script to listen - with retry if not ready
+        const tryUpdate = () => {
+          if (window.updateTablaVista && typeof window.updateTablaVista === 'function') {
+            console.log("Llamando updateTablaVista");
+            window.updateTablaVista();
+          } else {
+            console.log("updateTablaVista no está disponible, reintentando...");
+            setTimeout(tryUpdate, 100);
+          }
+        };
 
-        if (window.renderPaginacion) {
-          console.log("Llamando renderPaginacion");
-          window.renderPaginacion();
-        }
+        tryUpdate();
+
+        const tryPaginacion = () => {
+          if (window.renderPaginacion && typeof window.renderPaginacion === 'function') {
+            console.log("Llamando renderPaginacion");
+            window.renderPaginacion();
+          } else {
+            console.log("renderPaginacion no está disponible, reintentando...");
+            setTimeout(tryPaginacion, 100);
+          }
+        };
+
+        tryPaginacion();
 
         // Also call callbacks if they exist
         if (onResultsChange && typeof onResultsChange === 'function') {
@@ -89,7 +113,7 @@ export default function BuscadorPracticantes({
     window.onSortChangeFromBuscador = (field) => {
       handleSortChange(field);
     };
-    buscarPracticantes("", "", "", 1, "createdAt", "desc");
+    buscarPracticantes("", "", "", "", "", 1, "createdAt", "desc");
   }, []);
 
   // Debounce para búsqueda
@@ -100,7 +124,7 @@ export default function BuscadorPracticantes({
 
     debounceTimer.current = setTimeout(() => {
       setCurrentPage(1); // Reset a página 1 cuando cambia búsqueda
-      buscarPracticantes(searchTerm, pagoFilter, usuarioFilter, 1);
+      buscarPracticantes(searchTerm, pagoFilter, usuarioFilter, estadoFilter, estadoPracticaFilter, 1);
     }, 500);
 
     return () => {
@@ -108,19 +132,19 @@ export default function BuscadorPracticantes({
         clearTimeout(debounceTimer.current);
       }
     };
-  }, [searchTerm, pagoFilter, usuarioFilter]);
+  }, [searchTerm, pagoFilter, usuarioFilter, estadoFilter, estadoPracticaFilter]);
 
   // Efecto para cambiar página
   useEffect(() => {
     if (currentPage !== 1) {
-      buscarPracticantes(searchTerm, pagoFilter, usuarioFilter, currentPage, sortBy, sortOrder);
+      buscarPracticantes(searchTerm, pagoFilter, usuarioFilter, estadoFilter, estadoPracticaFilter, currentPage, sortBy, sortOrder);
     }
   }, [currentPage]);
 
   // Efecto para cambiar sorting
   useEffect(() => {
     setCurrentPage(1);
-    buscarPracticantes(searchTerm, pagoFilter, usuarioFilter, 1, sortBy, sortOrder);
+    buscarPracticantes(searchTerm, pagoFilter, usuarioFilter, estadoFilter, estadoPracticaFilter, 1, sortBy, sortOrder);
   }, [sortBy, sortOrder]);
 
   const handleSortChange = (field) => {
@@ -150,7 +174,7 @@ export default function BuscadorPracticantes({
       </div>
 
       {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             <Filter className="w-4 h-4 inline mr-1" />
@@ -179,7 +203,42 @@ export default function BuscadorPracticantes({
           >
             <option value="">Todos</option>
             <option value="creado">✅ Usuario Creado</option>
-            <option value="pendiente">⚠️ Usuario Pendiente (Incompleto)</option>
+            <option value="pendiente">⚠️ Usuario Pendiente</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Filter className="w-4 h-4 inline mr-1" />
+            Estado
+          </label>
+          <select
+            value={estadoFilter}
+            onChange={(e) => setEstadoFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent text-sm"
+          >
+            <option value="">Todos</option>
+            <option value="preinscrito">Preinscrito</option>
+            <option value="pago_pendiente">Pago Pendiente</option>
+            <option value="pago_validado">Pago Validado</option>
+            <option value="estudiante_creado">Estudiante Creado</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Filter className="w-4 h-4 inline mr-1" />
+            Estado Práctica
+          </label>
+          <select
+            value={estadoPracticaFilter}
+            onChange={(e) => setEstadoPracticaFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent text-sm"
+          >
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="activo">Activo</option>
+            <option value="completado">Completado</option>
           </select>
         </div>
       </div>

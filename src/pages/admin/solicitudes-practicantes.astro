@@ -1,0 +1,46 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import GestorSolicitudesPracticantes from "~/components/admin/GestorSolicitudesPracticantes.jsx";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+// Solo director y admin pueden ver solicitudes
+if (user.role !== "director" && user.role !== "admin") {
+  return Astro.redirect("/admin/validaciones-pago");
+}
+---
+
+<AdminLayout title="Solicitudes de Practicantes | FESC">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div>
+      <nav class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+        <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+        <span>/</span>
+        <span class="text-gray-800">Solicitudes de Practicantes</span>
+      </nav>
+      <h1 class="text-3xl font-bold text-gray-800">Gestión de Solicitudes</h1>
+      <p class="text-gray-600 mt-1">Revisa y gestiona las solicitudes entrantes de las empresas</p>
+    </div>
+
+    <!-- Gestor -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <GestorSolicitudesPracticantes client:load />
+    </div>
+  </div>
+</AdminLayout>

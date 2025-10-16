@@ -1,0 +1,73 @@
+# FLUJO DE SOLICITUD DE EMPRESAS - RESUMEN
+
+## Archivos Creados
+
+### Frontend - Público
+- `/src/pages/solicitar-practicantes.astro` - Landing page
+- `/src/pages/solicitar-practicantes/formulario.astro` - Contenedor form
+- `/src/components/forms/SolicitudEmpresasForm.jsx` - Form multi-paso (4 steps)
+- `/src/pages/solicitar-practicantes/confirmacion.astro` - Confirmación
+
+### Backend - APIs
+- `/src/pages/api/solicitudes-practicantes/crear.js` - POST crear + rate limiting 10/5min
+- `/src/pages/api/solicitudes-practicantes/listar.js` - GET listar con filtro estado + paginación
+- `/src/pages/api/solicitudes-practicantes/[id].js` - GET detalles + PATCH actualizar estado
+
+### Admin - Gestión Director
+- `/src/components/admin/GestorSolicitudesPracticantes.jsx` - Tabla con links a detalles
+- `/src/pages/admin/solicitudes-practicantes.astro` - Página listado
+- `/src/pages/admin/solicitudes-practicantes/[id].astro` - Página detalles dedicada
+- `/src/components/admin/DetallesSolicitudPracticantes.jsx` - Componente detalles con notas
+
+## Cambios en AdminLayout
+- Import Briefcase icon
+- Badge solicitudes_pendientes en layout
+- Queries para contar pendientes (admin + director)
+- Link "Solicitudes" en sección Gestión (admin)
+- Link "Solicitudes" para director role
+
+## Estados de Solicitud
+- pendiente_revision (inicial)
+- en_revision
+- aprobada
+- rechazada
+
+## Validaciones Form
+- Step 1: empresa, representante, nit, sector, tamaño, direccion, telefonos, convenio
+- Step 2: responsable, cargo, correo (validado), telefono
+- Step 3: al menos 1 practicante con nivel, programa, municipio, cargo, area, perfil
+- Step 4: confirmación checkbox
+
+## Rate Limiting
+- 10 solicitudes por IP cada 5 minutos en /crear
+
+## Página de Detalles
+- Muestra información completa: empresa, contacto, practicantes solicitados
+- Sección de notas del director (textarea editable)
+- Botones de acción según estado actual
+- Acceso solo para director y admin
+
+## Estructura del Menú Admin (FINAL)
+**Preinscripciones:**
+- Nuevo Practicante ➕
+- Preinscripciones
+- Validar Pagos
+- Crear Estudiantes
+
+**Empresas:**
+- Nueva Solicitud ➕
+- Solicitudes Recibidas
+- Empresas
+
+**Gestión:**
+- Usuarios
+
+**Otros:**
+- Estadísticas
+
+## Página Admin Nueva Solicitud
+- `/admin/nueva-solicitud-empresa.astro` - Pantalla similar a Nuevo Practicante
+- Muestra descripción e instrucciones para las empresas
+- Botón "Abrir Formulario Público" (abre en nueva ventana)
+- Botón "Ver Solicitudes Recibidas" (lista todas las solicitudes)
+- Incluye instrucciones y enlace directo para compartir con empresas

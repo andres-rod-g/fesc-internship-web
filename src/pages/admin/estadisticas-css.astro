@@ -1,5 +1,6 @@
 ---
 import AdminLayout from "../../layouts/AdminLayout.astro";
+import EstadosPracticantesChart from "~/components/admin/EstadosPracticantesChart.jsx";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "~/env";
 import { connectDB } from "~/utils/db.js";
@@ -213,6 +214,14 @@ const revisando = estadosData['revisando'] || 0;
 const finalizados = estadosData['finalizado'] || 0;
 const rechazados = estadosData['rechazado'] || 0;
 
+// Calcular otros estados
+const otrosEstados = Object.entries(estadosData).reduce((sum, [estado, count]) => {
+  if (!['pendiente', 'revisando', 'finalizado', 'rechazado'].includes(estado)) {
+    return sum + count;
+  }
+  return sum;
+}, 0);
+
 const maxProgramas = Math.max(...programas.map(p => p.total));
 const maxModalidades = Math.max(...modalidades.map(m => m.count));
 const maxRegistros = registrosPorMes.length > 0 ? Math.max(...registrosPorMes.map(r => r.count)) : 1;
@@ -315,58 +324,18 @@ const profesional = ciclos.find(c => c._id === 'Profesional')?.count || 0;
       </div>
     </div>
 
-    <!-- Estados de Practicantes (Gráfico de Dona CSS) -->
+    <!-- Estados de Practicantes -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h3 class="text-xl font-semibold text-gray-800 mb-6">🎯 Estados de Practicantes</h3>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Gráfico Dona CSS -->
-        <div class="flex items-center justify-center">
-          <div class="relative w-64 h-64">
-            <!-- Círculo base -->
-            <div class="absolute inset-0 rounded-full border-[40px] border-gray-200"></div>
-            
-            <!-- Segmentos (simulando dona) -->
-            <div class="absolute inset-0 rounded-full border-[40px] border-transparent"
-                 style={`border-top-color: #F59E0B; transform: rotate(0deg);`}></div>
-            <div class="absolute inset-0 rounded-full border-[40px] border-transparent"
-                 style={`border-top-color: #3B82F6; transform: rotate(${(pendientes / totalPracticantes) * 360}deg);`}></div>
-            <div class="absolute inset-0 rounded-full border-[40px] border-transparent"
-                 style={`border-top-color: #10B981; transform: rotate(${((pendientes + revisando) / totalPracticantes) * 360}deg);`}></div>
-            
-            <!-- Centro -->
-            <div class="absolute inset-8 rounded-full bg-white flex items-center justify-center">
-              <div class="text-center">
-                <div class="text-3xl font-bold text-gray-800">{totalPracticantes}</div>
-                <div class="text-sm text-gray-600">Total</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Leyenda -->
-        <div class="space-y-4">
-          <div class="flex items-center gap-3">
-            <div class="w-4 h-4 bg-yellow-500 rounded"></div>
-            <span class="text-gray-700">Pendientes</span>
-            <span class="ml-auto font-semibold text-yellow-600">{pendientes}</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="w-4 h-4 bg-blue-500 rounded"></div>
-            <span class="text-gray-700">En Revisión</span>
-            <span class="ml-auto font-semibold text-blue-600">{revisando}</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="w-4 h-4 bg-green-500 rounded"></div>
-            <span class="text-gray-700">Finalizados</span>
-            <span class="ml-auto font-semibold text-green-600">{finalizados}</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="w-4 h-4 bg-red-500 rounded"></div>
-            <span class="text-gray-700">Rechazados</span>
-            <span class="ml-auto font-semibold text-red-600">{rechazados}</span>
-          </div>
-        </div>
-      </div>
+      <EstadosPracticantesChart
+        client:load
+        pendientes={pendientes}
+        revisando={revisando}
+        finalizados={finalizados}
+        rechazados={rechazados}
+        otrosEstados={otrosEstados}
+        totalPracticantes={totalPracticantes}
+      />
     </div>
 
     <!-- Gráficos de Barras CSS -->

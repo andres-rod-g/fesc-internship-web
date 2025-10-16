@@ -1,0 +1,128 @@
+# VALIDATION PAYMENT LINK - ANÁLISIS Y UBICACIONES
+
+## OBJETIVO
+Agregar capacidad para que admins copien link de validación de pago para enviarlo a estudiantes.
+
+## UBICACIONES ACTUALES CON LINKS DE COMPROBANTE
+
+### 1. `/src/pages/admin/practicantes/[id].astro` (LÍNEAS 343-371)
+**Estado**: YA EXISTE implementado
+**Qué hace**: 
+- Muestra link para subir comprobante cuando `estado_preinscripcion === 'preinscrito'`
+- Card azul con ícono Link, input readonly y botón copiar
+- Link: `/estudiante/subir-comprobante?id={practicante._id}`
+- Función: `copiarLinkComprobante()` (líneas 401-423)
+
+**Ubicación exacta en UI**: Sección "Acciones" (línea 340)
+
+### 2. `/src/pages/admin/validaciones-pago.astro`
+**Estado**: NO EXISTE - OPORTUNIDAD
+**Qué tiene**: 
+- Grid de 3 columnas con cards de practicantes (línea 64)
+- Cada card muestra: nombre, programa, doc, fecha subida, email, comprobante
+- Botones: Aprobar y Rechazar
+- No hay opción de copiar link
+
+## LÍNEAS DE CÓDIGO PARA COPIAR EL LINK
+
+```javascript
+// Función de utilidad
+function copiarLinkComprobante() {
+  const input = document.getElementById('link-comprobante');
+  input.select();
+  input.setSelectionRange(0, 99999);
+  navigator.clipboard.writeText(input.value).then(() => {
+    const button = event.target.closest('button');
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<svg...>✓ ¡Copiado!';
+    setTimeout(() => {
+      button.innerHTML = originalHTML;
+    }, 2000);
+  }).catch(err => {
+    alert('Error al copiar');
+  });
+}
+
+// HTML
+<div class="flex items-center gap-2">
+  <input
+    type="text"
+    id="link-comprobante"
+    readonly
+    value={`${Astro.url.origin}/estudiante/subir-comprobante?id=${practicante._id}`}
+    class="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-lg text-sm text-gray-700"
+  />
+  <button
+    onclick="copiarLinkComprobante()"
+    class="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+  >
+    <Copy className="w-4 h-4" />
+    Copiar
+  </button>
+</div>
+```
+
+## COMPONENTES RELEVANTES
+
+### ValidacionPagoCard.jsx
+- Ubicación: `/src/components/admin/ValidacionPagoCard.jsx`
+- Props: `practicante`, `onValidar`
+- Estado interno: showModal, accion, comentarios, loading, showImageModal
+- NO tiene funcionalidad de copiar link
+- Se usa en: validaciones-pago.astro
+
+### TablaPracticantes.jsx
+- Ubicación: `/src/components/admin/TablaPracticantes.jsx`
+- Muestra tabla con practicantes
+- Link de acción: "/admin/practicantes/{id}" para ver detalles
+- Link existe en página de detalles
+
+## FLUJOS ESTUDIANTE
+
+```
+1. Preinscrito (preescripcion inicial)
+   ↓ (admin envía link)
+2. Pago Pendiente (espera comprobante)
+   ↓ (estudiante sube comprobante en: /estudiante/subir-comprobante?id=...)
+3. Pago Validado (admin revisa comprobante)
+   ↓ (admin aprueba/rechaza)
+4. Estudiante Creado (o Rechazado)
+```
+
+## RECOMENDACIONES
+
+### Opción A: Agregar en ValidacionPagoCard (MEJOR)
+- Mostrar link cuando estado_preinscripcion !== 'pago_validado'
+- Card similar a la de practicantes/[id].astro
+- Permite copiar link directo desde validaciones-pago.astro
+- Reutilizable en otros flujos
+
+### Opción B: En BuscadorPracticantes.jsx
+- Agregar columna "Link de Validación" con botón copiar
+- Más visible en tabla de búsqueda
+
+### Opción C: API endpoint para generar tokens
+- POST /api/validation-link/{practicante_id}
+- Retorna link con token único temporal
+- Mayor control y seguridad
+
+## VARIABLES Y CONSTANTES
+
+### Astro.url.origin
+- URL base del sitio: http://localhost:3000 o https://domain.com
+- Necesario para construir link completo
+
+### Practicante _id
+- ObjectId de MongoDB
+- Se pasa en URL como query param: ?id={_id}
+
+## ESTADOS RELEVANTES
+
+- `estado_preinscripcion`: 'preinscrito', 'pago_pendiente', 'pago_validado', 'estudiante_creado', 'rechazado'
+- `validacion_pago.estado`: 'pendiente', 'aprobado', 'rechazado'
+
+## ARCHIVOS A MODIFICAR
+
+1. `/src/components/admin/ValidacionPagoCard.jsx` - Agregar sección de link
+2. `/src/pages/admin/validaciones-pago.astro` - Integrar UI del link (OPCIONAL)
+3. Considerar: `/src/components/forms/` para reutilizable UI

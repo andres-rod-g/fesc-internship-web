@@ -67,7 +67,8 @@ if (user.role !== "admin") {
 </AdminLayout>
 
 <script is:inline>
-  // Global state
+  console.log("Script inline ejecutandose");
+
   let currentPage = 1;
   window.currentResults = [];
   window.currentPagination = null;
@@ -75,11 +76,10 @@ if (user.role !== "admin") {
   let sortDirection = "desc";
 
   function sortData(data, field, direction) {
-    const sorted = [...data].sort((a, b) => {
+    const sorted = [...data].sort(function(a, b) {
       let valueA = a[field] || "";
       let valueB = b[field] || "";
 
-      // Handle dates
       if (field === "createdAt") {
         valueA = new Date(valueA).getTime();
         valueB = new Date(valueB).getTime();
@@ -95,215 +95,154 @@ if (user.role !== "admin") {
     return sorted;
   }
 
-  window.handleSort = (field) => {
+  window.handleSort = function(field) {
     if (sortField === field) {
       sortDirection = sortDirection === "asc" ? "desc" : "asc";
     } else {
       sortField = field;
       sortDirection = "asc";
     }
-    updateTablaVista();
+    window.updateTablaVista();
   };
 
-  function updateTablaVista() {
-    const tablaContainer = document.getElementById('tabla-container');
+  window.getEstadoLabel = function(estado) {
+    const labels = {
+      'preinscrito': 'Preinscrito',
+      'pago_pendiente': 'Pago Pendiente',
+      'pago_validado': 'Pago Validado',
+      'estudiante_creado': 'Estudiante Creado'
+    };
+    return labels[estado] || estado;
+  };
 
+  window.getEstadoLaboralLabel = function(estado) {
+    const labels = {
+      'seeking_internship': 'Buscando prácticas',
+      'working': 'Trabajando',
+      'entrepreneur': 'Emprendedor'
+    };
+    return labels[estado] || estado;
+  };
+
+  window.getEstadoBadge = function(estado) {
+    const badges = {
+      'preinscrito': 'bg-blue-100 text-blue-800',
+      'pago_pendiente': 'bg-yellow-100 text-yellow-800',
+      'pago_validado': 'bg-green-100 text-green-800',
+      'estudiante_creado': 'bg-purple-100 text-purple-800'
+    };
+    const color = badges[estado] || 'bg-gray-100 text-gray-800';
+    const label = window.getEstadoLabel(estado);
+    return '<span class="px-3 py-1 inline-flex text-xs font-semibold rounded-full ' + color + '">' + label + '</span>';
+  };
+
+  window.getEstadoLaboralBadge = function(estado) {
+    const badges = {
+      'seeking_internship': 'bg-blue-100 text-blue-800',
+      'working': 'bg-green-100 text-green-800',
+      'entrepreneur': 'bg-purple-100 text-purple-800'
+    };
+    const color = badges[estado] || 'bg-gray-100 text-gray-800';
+    const label = window.getEstadoLaboralLabel(estado);
+    return '<span class="px-3 py-1 inline-flex text-xs font-semibold rounded-full ' + color + '">' + label + '</span>';
+  };
+
+  window.getEstadoPracticaBadge = function(estado) {
+    if (!estado) return '<span class="px-3 py-1 inline-flex text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Sin asignar</span>';
+    const badges = {
+      'pendiente': 'bg-yellow-100 text-yellow-800',
+      'activo': 'bg-blue-100 text-blue-800',
+      'completado': 'bg-green-100 text-green-800'
+    };
+    const color = badges[estado] || 'bg-gray-100 text-gray-800';
+    return '<span class="px-3 py-1 inline-flex text-xs font-semibold rounded-full ' + color + '">' + estado + '</span>';
+  };
+
+  window.updateTablaVista = function() {
+    const container = document.getElementById('tabla-container');
     if (!window.currentResults || window.currentResults.length === 0) {
-      tablaContainer.innerHTML = `
-        <div class="p-8 text-center">
-          <p class="text-gray-500">Realiza una búsqueda o aplica filtros para ver los practicantes</p>
-        </div>
-      `;
+      container.innerHTML = '<div class="p-8 text-center"><p class="text-gray-500">Realiza una búsqueda o aplica filtros para ver los practicantes</p></div>';
       return;
     }
 
-    // Sort the data
     const sortedData = sortData(window.currentResults, sortField, sortDirection);
+    let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr>';
 
-    // Generar tabla HTML
-    let html = `
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('nombres')">
-                Practicante ${sortField === 'nombres' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('correo_institucional')">
-                Correo ${sortField === 'correo_institucional' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('numero_documento')">
-                Cédula ${sortField === 'numero_documento' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('estado_laboral')">
-                Estado Laboral ${sortField === 'estado_laboral' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onclick="window.handleSort('createdAt')">
-                Fecha Creación ${sortField === 'createdAt' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
-              </th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gestión</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-    `;
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="window.handleSort(\'nombres\')">Practicante</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="window.handleSort(\'correo_institucional\')">Correo</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="window.handleSort(\'numero_documento\')">Cedula</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="window.handleSort(\'estado_laboral\')">Estado Laboral</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="window.handleSort(\'estado_preinscripcion\')">Estado</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Practica</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="window.handleSort(\'createdAt\')">Fecha Creacion</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gestion</th>';
+    html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>';
+    html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
 
-    sortedData.forEach(p => {
-      const estadoLaboralColors = {
-        'seeking_internship': 'bg-blue-100 text-blue-800',
-        'working': 'bg-green-100 text-green-800',
-        'entrepreneur': 'bg-purple-100 text-purple-800'
-      };
+    sortedData.forEach(function(p) {
+      const fotoUrl = p.foto_url || '/api/practicantes/' + p._id + '/foto';
+      const name = (p.nombres || '') + ' ' + (p.apellidos || '');
+      const programa = p.programa || 'No especificado';
+      const fecha = new Date(p.createdAt).toLocaleDateString('es-ES');
 
-      const estadoLaboralLabels = {
-        'seeking_internship': 'Busca prácticas',
-        'working': 'Trabaja',
-        'entrepreneur': 'Emprendedor'
-      };
-
-      const formatDate = (date) => {
-        return new Date(date).toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-      };
-
-      const colorClass = estadoLaboralColors[p.estado_laboral] || 'bg-gray-100 text-gray-800';
-      const labelEstado = estadoLaboralLabels[p.estado_laboral] || 'No especificado';
-      const fechaFormato = formatDate(p.createdAt);
-
-      let gestionHTML = '';
+      let gestionBadge = '';
       if (p.estado_preinscripcion === 'estudiante_creado') {
-        gestionHTML = `
-          <div class="flex flex-col gap-1">
-            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full w-fit">
-              ✓ Pago
-            </span>
-            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full w-fit">
-              ✓ Usuario
-            </span>
-          </div>
-        `;
+        gestionBadge = '<span class="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs rounded mr-1">Pago OK</span><span class="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs rounded">Usuario OK</span>';
       } else if (p.estado_preinscripcion === 'pago_validado') {
-        gestionHTML = `
-          <div class="flex flex-col gap-1">
-            <span class="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full w-fit">
-              ✓ Pago
-            </span>
-            <span class="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 text-xs font-semibold rounded-full w-fit">
-              ⚠️ Usuario pendiente
-            </span>
-          </div>
-        `;
+        gestionBadge = '<span class="inline-block bg-green-100 text-green-800 px-2 py-1 text-xs rounded mr-1">Pago OK</span><span class="inline-block bg-orange-100 text-orange-800 px-2 py-1 text-xs rounded">Usuario Pendiente</span>';
       } else {
-        gestionHTML = `
-          <div class="flex flex-col gap-1">
-            <span class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded-full w-fit">
-              ✗ Pago no validado
-            </span>
-          </div>
-        `;
+        gestionBadge = '<span class="inline-block bg-red-100 text-red-800 px-2 py-1 text-xs rounded">Pago No Validado</span>';
       }
 
-      html += `
-        <tr class="hover:bg-gray-50 transition-colors">
-          <td class="px-6 py-4 whitespace-nowrap text-left">
-            <div class="flex items-center gap-3">
-              <img src="${p.foto_url || `/api/practicantes/${p._id}/foto`}" alt="${p.nombres} ${p.apellidos}" class="w-10 h-10 rounded-full object-cover bg-gray-200" />
-              <div>
-                <div class="text-sm font-medium text-gray-900">${p.nombres} ${p.apellidos}</div>
-                <div class="text-xs text-gray-500">${p.programa || 'No especificado'}</div>
-              </div>
-            </div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-600">${p.correo_institucional || '-'}</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-600">${p.numero_documento || '-'}</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-3 py-1 inline-flex text-xs font-semibold rounded-full ${colorClass}">
-              ${labelEstado}
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <div class="text-sm text-gray-600">${fechaFormato}</div>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            ${gestionHTML}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-            <a href="/admin/practicantes/${p._id}" class="text-accent hover:text-red-700 font-medium">
-              Ver detalles
-            </a>
-          </td>
-        </tr>
-      `;
+      html += '<tr class="hover:bg-gray-50">';
+      html += '<td class="px-6 py-4 whitespace-nowrap text-left"><div class="flex items-center gap-2"><img src="' + fotoUrl + '" alt="' + name + '" class="w-10 h-10 rounded-full object-cover bg-gray-200" /><div><div class="text-sm font-medium text-gray-900">' + name + '</div><div class="text-xs text-gray-500">' + programa + '</div></div></div></td>';
+      html += '<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">' + (p.correo_institucional || '-') + '</td>';
+      html += '<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">' + (p.numero_documento || '-') + '</td>';
+      html += '<td class="px-6 py-4 whitespace-nowrap">' + window.getEstadoLaboralBadge(p.estado_laboral) + '</td>';
+      html += '<td class="px-6 py-4 whitespace-nowrap">' + window.getEstadoBadge(p.estado_preinscripcion) + '</td>';
+
+      const empresaCell = p.empresa_info && p.empresa_info.empresa_nombre
+        ? '<a href="/admin/empresas/' + p.empresa_info.empresa_id + '" class="text-red-600 hover:text-red-800 font-medium">' + p.empresa_info.empresa_nombre + '</a>'
+        : '<span class="text-gray-400">Sin asignar</span>';
+      html += '<td class="px-6 py-4 whitespace-nowrap text-sm">' + empresaCell + '</td>';
+
+      html += '<td class="px-6 py-4 whitespace-nowrap">' + window.getEstadoPracticaBadge(p.estado_practica_en_empresa) + '</td>';
+      html += '<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">' + fecha + '</td>';
+      html += '<td class="px-6 py-4 whitespace-nowrap text-xs">' + gestionBadge + '</td>';
+      html += '<td class="px-6 py-4 whitespace-nowrap text-sm font-medium"><a href="/admin/practicantes/' + p._id + '" class="text-red-600 hover:text-red-800">Ver detalles</a></td>';
+      html += '</tr>';
     });
 
-    html += `
-          </tbody>
-        </table>
-      </div>
-    `;
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  };
 
-    tablaContainer.innerHTML = html;
-  }
-
-  function renderPaginacion() {
-    const paginationContainer = document.getElementById('pagination-container');
-
+  window.renderPaginacion = function() {
+    const container = document.getElementById('pagination-container');
     if (!window.currentPagination || window.currentPagination.totalPages <= 1) {
-      paginationContainer.innerHTML = '';
+      container.innerHTML = '';
       return;
     }
+    const p = window.currentPagination;
+    let html = '<div class="flex items-center justify-between px-4 py-3 bg-white rounded-lg border border-gray-200">';
+    html += '<div class="text-sm text-gray-600">Mostrando ' + p.total + ' practicantes (Pagina ' + currentPage + ' de ' + p.totalPages + ')</div>';
+    html += '<div class="flex items-center gap-1">';
+    if (currentPage > 1) {
+      html += '<button onclick="window.changePage(' + (currentPage - 1) + ')" class="p-2">Anterior</button>';
+    }
+    html += '<button onclick="window.changePage(1)">1</button>';
+    if (p.totalPages > 1) {
+      html += '<button onclick="window.changePage(' + p.totalPages + ')">' + p.totalPages + '</button>';
+    }
+    if (currentPage < p.totalPages) {
+      html += '<button onclick="window.changePage(' + (currentPage + 1) + ')" class="p-2">Siguiente</button>';
+    }
+    html += '</div></div>';
+    container.innerHTML = html;
+  };
 
-    const pagination = window.currentPagination;
-    paginationContainer.innerHTML = `
-      <div class="flex items-center justify-between px-4 py-3 bg-white rounded-lg border border-gray-200">
-        <div class="text-sm text-gray-600">
-          Mostrando <span class="font-semibold">${pagination.total}</span> practicantes
-          (Página <span class="font-semibold">${currentPage}</span> de
-          <span class="font-semibold">${pagination.totalPages}</span>)
-        </div>
-        <div class="flex items-center gap-1">
-          <button
-            onclick="changePage(${currentPage - 1})"
-            ${currentPage === 1 ? 'disabled' : ''}
-            class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-          >
-            ◀
-          </button>
-          ${Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
-            .filter(p => Math.abs(p - currentPage) <= 2 || p === 1 || p === pagination.totalPages)
-            .map(page => `
-              <button
-                onclick="changePage(${page})"
-                class="px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                  page === currentPage
-                    ? 'bg-red-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }"
-              >
-                ${page}
-              </button>
-            `).join('')}
-          <button
-            onclick="changePage(${currentPage + 1})"
-            ${currentPage === pagination.totalPages ? 'disabled' : ''}
-            class="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-          >
-            ▶
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
-  window.changePage = (page) => {
-    console.log("changePage called with page:", page);
+  window.changePage = function(page) {
     currentPage = page;
     if (window.onPageChangeFromBuscador) {
       window.onPageChangeFromBuscador(page);

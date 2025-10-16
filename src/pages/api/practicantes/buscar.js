@@ -34,6 +34,8 @@ export async function GET({ request, cookies }) {
     const searchTerm = url.searchParams.get("q") || "";
     const pagFilter = url.searchParams.get("pago") || ""; // 'validado', 'no_validado', ''
     const userFilter = url.searchParams.get("usuario") || ""; // 'creado', 'pendiente', ''
+    const estadoFilter = url.searchParams.get("estado") || ""; // 'preinscrito', 'pago_pendiente', 'pago_validado', 'estudiante_creado'
+    const estadoPracticaFilter = url.searchParams.get("estado_practica") || ""; // 'pendiente', 'activo', 'completado'
     const page = parseInt(url.searchParams.get("page") || "1");
     const limit = 10;
     const skip = (page - 1) * limit;
@@ -43,12 +45,13 @@ export async function GET({ request, cookies }) {
     const sortOrder = url.searchParams.get("sortOrder") || "desc"; // 'asc' or 'desc'
 
     // Validate sortBy to prevent injection
-    const validSortFields = ["nombres", "apellidos", "correo_institucional", "numero_documento", "estado_laboral", "createdAt", "programa"];
+    const validSortFields = ["nombres", "apellidos", "correo_institucional", "numero_documento", "estado_laboral", "estado_preinscripcion", "createdAt", "programa"];
     const safeSortBy = validSortFields.includes(sortBy) ? sortBy : "createdAt";
     const safeSortOrder = sortOrder === "asc" ? 1 : -1;
 
     const db = await connectDB();
     const practicantesCollection = db.collection("practicantes");
+    const empresasCollection = db.collection("empresas");
 
     // Construir query
     const query = {};
@@ -93,42 +96,108 @@ export async function GET({ request, cookies }) {
       });
     }
 
+    // Filtro por estado de preinscripción
+    if (estadoFilter) {
+      andConditions.push({
+        estado_preinscripcion: estadoFilter
+      });
+    }
+
+    // Filtro por estado de práctica en empresa
+    if (estadoPracticaFilter) {
+      andConditions.push({
+        estado_practica_en_empresa: estadoPracticaFilter
+      });
+    }
+
     // Combinar todas las condiciones con $and
+    let matchStage = {};
     if (andConditions.length > 0) {
       if (andConditions.length === 1) {
-        Object.assign(query, andConditions[0]);
+        matchStage = andConditions[0];
       } else {
-        query.$and = andConditions;
+        matchStage.$and = andConditions;
       }
     }
 
-    // Obtener total de documentos
-    const total = await practicantesCollection.countDocuments(query);
+    // Construir pipeline de agregación
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: "empresas",
+          let: { practicante_id: { $toString: "$_id" } },
+          pipeline: [
+            {
+              $unwind: "$practicantes_asignados"
+            },
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$practicantes_asignados.practicante_id", "$$practicante_id"]
+                }
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                empresa_id: "$_id",
+                empresa_nombre: "$nombre",
+                empresa_sector: "$sector",
+                estado_practica_en_empresa: "$practicantes_asignados.estado_practica",
+                fecha_asignacion: "$practicantes_asignados.fecha_asignacion"
+              }
+            }
+          ],
+          as: "empresa_info"
+        }
+      },
+      {
+        $unwind: {
+          path: "$empresa_info",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $addFields: {
+          estado_practica_en_empresa: {
+            $cond: {
+              if: { $eq: ["$empresa_info", null] },
+              then: null,
+              else: "$empresa_info.estado_practica_en_empresa"
+            }
+          }
+        }
+      }
+    ];
+
+    // Obtener total de documentos con agregación
+    const totalPipeline = [...pipeline, { $count: "total" }];
+    const totalResult = await practicantesCollection.aggregate(totalPipeline).toArray();
+    const total = totalResult.length > 0 ? totalResult[0].total : 0;
     const totalPages = Math.ceil(total / limit);
 
     // Ejecutar query con paginación y sorting
     const sortObject = { [safeSortBy]: safeSortOrder };
-    const practicantes = await practicantesCollection
-      .find(query)
-      .sort(sortObject)
-      .skip(skip)
-      .limit(limit)
-      .toArray();
-
-    // Crear URLs para las fotos
-    const practicantesConFoto = practicantes.map(p => {
-      if (p.foto && p.foto.data) {
-        return {
-          ...p,
-          foto_url: `/api/practicantes/${p._id}/foto`
-        };
+    const finalPipeline = [
+      ...pipeline,
+      { $sort: sortObject },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $addFields: {
+          foto_url: {
+            $concat: ["/api/practicantes/", { $toString: "$_id" }, "/foto"]
+          }
+        }
       }
-      return p;
-    });
+    ];
+
+    const practicantes = await practicantesCollection.aggregate(finalPipeline).toArray();
 
     return new Response(
       JSON.stringify({
-        practicantes: practicantesConFoto,
+        practicantes: practicantes,
         pagination: {
           page,
           limit,

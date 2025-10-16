@@ -382,7 +382,7 @@ const practicantesNoAsignados = todosPracticantes.filter(p =>
   </div>
 </AdminLayout>
 
-<script is:inline define:vars={{ empresa, practicantesNoAsignados }}>
+<script is:inline>
   function abrirModalAsignar() {
     document.getElementById('modal-asignar').classList.remove('hidden');
   }
@@ -391,63 +391,48 @@ const practicantesNoAsignados = todosPracticantes.filter(p =>
     document.getElementById('modal-asignar').classList.add('hidden');
   }
 
-  async function seleccionarPracticante(practicanteId) {
-    try {
-      const response = await fetch(`/api/empresas/${empresa._id}/asignar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          practicante_id: practicanteId,
-          estado_practica: 'pendiente'
-        }),
-      });
-
-      if (response.ok) {
-        alert('Practicante asignado exitosamente');
-        window.location.reload();
-      } else {
-        const error = await response.json();
-        alert(`Error: ${error.error || 'Error desconocido'}`);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error de conexión');
-    }
-  }
-
   async function cambiarEstadoPractica(select) {
     const empresaId = select.dataset.empresaId;
     const practicanteId = select.dataset.practicanteId;
     const nuevoEstado = select.value;
     const estadoActual = select.dataset.currentStatus;
 
-    if (nuevoEstado === estadoActual) return;
+    console.log('Cambiar estado:', { empresaId, practicanteId, nuevoEstado, estadoActual });
+
+    if (nuevoEstado === estadoActual) {
+      console.log('El estado es igual al actual, no hacer nada');
+      return;
+    }
 
     try {
+      const payload = {
+        practicante_id: practicanteId,
+        estado_practica: nuevoEstado
+      };
+      console.log('Enviando payload:', payload);
+
       const response = await fetch(`/api/empresas/${empresaId}/cambiar-estado`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          practicante_id: practicanteId,
-          estado_practica: nuevoEstado
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Response data:', data);
 
       if (response.ok) {
         alert('Estado actualizado exitosamente');
         window.location.reload();
       } else {
-        const error = await response.json();
-        alert(`Error: ${error.error || 'Error desconocido'}`);
+        alert(`Error: ${data.error || 'Error desconocido'}`);
         select.value = estadoActual;
       }
     } catch (error) {
-      console.error('Error:', error);
-      alert('Error de conexión');
+      console.error('Error capturado:', error);
+      alert(`Error de conexión: ${error.message}`);
       select.value = estadoActual;
     }
   }
@@ -466,6 +451,34 @@ const practicantesNoAsignados = todosPracticantes.filter(p =>
 
       if (response.ok) {
         alert('Practicante desasignado exitosamente');
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(`Error: ${error.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Error de conexión');
+    }
+  }
+</script>
+
+<script is:inline define:vars={{ empresa, practicantesNoAsignados }}>
+  async function seleccionarPracticante(practicanteId) {
+    try {
+      const response = await fetch(`/api/empresas/${empresa._id}/asignar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          practicante_id: practicanteId,
+          estado_practica: 'pendiente'
+        }),
+      });
+
+      if (response.ok) {
+        alert('Practicante asignado exitosamente');
         window.location.reload();
       } else {
         const error = await response.json();

@@ -1,0 +1,69 @@
+# DOCUMENTACIÓN DEL FLUJO - ACTUALIZACIÓN
+
+## Cambios en Documentación
+- `/src/pages/admin/documentacion-flujo.astro` - Refactorizado para usar selector interactivo
+- `/src/components/admin/DocumentacionFlujoSelector.jsx` - Nuevo componente React (554 líneas)
+
+## Característica Nueva: Selector de Flujos (2 pantallas)
+### Pantalla 1: Selector
+- Grid 2 columnas con cards para "Flujo Estudiantes" y "Flujo Empresas"
+- Cada card tiene:
+  - Ícono grande (Users, Building2)
+  - Título y descripción
+  - Badge "3 PASOS"
+  - Lista de features
+  - Botón "Ver documentación"
+- Hover effects con escalado de iconos
+
+### Pantalla 2: Documentación Completa
+- Botón "Atrás" para regresar
+- **Flujo Visual Completo**: gradient con 3 pasos y conectores
+- **Stages Expandibles**: 3 cards details/summary con:
+  - Ícono grande con colores (blue/yellow/green)
+  - ¿Qué sucede? (con checkmarks)
+  - ¿Quién lo hace? (box separado)
+  - Instrucciones numeradas
+  - Siguiente paso (indigo banner)
+- **Resumen de Estados**: cards coloridas con iconos (AlertCircle/CheckCircle/XCircle)
+- **Tips y Recordatorios**: 5 tips con numeración en banner orange/yellow
+- **Ayuda Adicional**: footer blue
+
+## Flujos Documentados
+
+### Flujo Estudiantes (3 pasos)
+1. Preinscripción: Información personal, programa, experiencia
+2. Validación Pago: Upload comprobante, validación manual
+   - Opción: Entrar al usuario en Preinscripciones y copiar link de "Subir Comprobante"
+   - Enviar link al estudiante para que suba la foto
+3. Creación Usuario: Generación de credenciales
+
+Estados: Preinscrito → Pago Pendiente → Pago Validado → Estudiante Creado (o Rechazado)
+
+### Flujo Empresas (3 pasos)
+1. Solicitud: Datos empresa, contacto, requerimientos practicantes
+2. Revisión: Director/admin revisa y agrega notas
+3. Aprobación: Decisión final sobre la solicitud
+
+Estados: Pendiente Revisión → En Revisión → Aprobada (o Rechazada)
+
+## Acceso
+- Admin, Registro y Control, Director: acceso completo (director agregado)
+
+## Componentes Utilizados
+- lucide-react: Users, Building2, FileText, CreditCard, UserCheck, Briefcase, ChevronDown, AlertCircle, CheckCircle, XCircle
+- React.Fragment para mapeos sin div wrapper
+- Estado con useState para selectedFlow (null/'estudiantes'/'empresas')
+
+# ESTADÍSTICAS - MEJORAS
+
+## Cambios en /admin/estadisticas-css
+- Reemplazado gráfico de dona CSS por componente React `EstadosPracticantesChart`
+- Nuevo archivo: `/src/components/admin/EstadosPracticantesChart.jsx` (75 líneas)
+
+## Características del Nuevo Componente
+- Gráfico de barras horizontales animadas con gradientes
+- Cards informativos con porcentajes
+- Resumen general en grid
+- Estados: Pendientes (yellow), En Revisión (blue), Finalizados (green), Rechazados (red)
+- Calcula automáticamente porcentajes y visualización
+- Responsive (2 cols mobile, 4 cols desktop)

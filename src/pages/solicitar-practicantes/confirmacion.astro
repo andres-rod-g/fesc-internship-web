@@ -1,0 +1,62 @@
+---
+import MainLayout from "~/layouts/MainLayout.astro";
+import { CheckCircle, ArrowLeft } from "lucide-react";
+
+const solicitudId = Astro.url.searchParams.get('id');
+---
+
+<MainLayout title="Solicitud Enviada | FESC">
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12">
+    <div class="max-w-2xl mx-auto px-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+        <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <CheckCircle className="w-12 h-12 text-green-600" />
+        </div>
+
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">
+          ¡Solicitud Enviada Exitosamente!
+        </h1>
+
+        <p class="text-lg text-gray-600 mb-6">
+          Hemos recibido tu solicitud de practicantes. Nuestro equipo la revisará y se pondrá en contacto pronto.
+        </p>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+          <p class="text-sm text-gray-600 mb-2">ID de Solicitud:</p>
+          <p class="text-xl font-semibold text-accent">{solicitudId || "Número de referencia"}</p>
+        </div>
+
+        <div class="bg-gray-50 rounded-lg p-6 mb-8 text-left">
+          <h3 class="font-semibold text-gray-800 mb-4">Próximos pasos:</h3>
+          <ul class="space-y-3 text-sm text-gray-700">
+            <li class="flex items-start gap-3">
+              <span class="text-accent font-bold">1.</span>
+              <span>Revisaremos tu solicitud en un plazo máximo de 5 días hábiles</span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="text-accent font-bold">2.</span>
+              <span>Te contactaremos al correo proporcionado para confirmar detalles</span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="text-accent font-bold">3.</span>
+              <span>Procederemos a buscar los mejores perfiles para tus solicitudes</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="space-y-3">
+          <a
+            href="/solicitar-practicantes"
+            class="inline-flex items-center gap-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Volver
+          </a>
+          <p class="text-sm text-gray-600">
+            Si tienes preguntas, contacta a prácticas@fesc.edu.co
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</MainLayout>

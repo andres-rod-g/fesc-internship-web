@@ -20,7 +20,7 @@ export async function PUT({ params, request }) {
     
     // Buscar la asignación actual
     const asignacionActual = empresa.practicantes_asignados?.find(
-      p => p.practicante_id === practicante_id
+      p => p.practicante_id === practicante_id || p.practicante_id?.toString() === practicante_id
     );
     
     if (!asignacionActual) {
@@ -33,10 +33,21 @@ export async function PUT({ params, request }) {
     const estadoAnterior = asignacionActual.estado_practica;
     
     // Actualizar el estado en la asignación
+    // Convertir practicante_id a ObjectId si es necesario
+    let practicanteObjId;
+    try {
+      practicanteObjId = new ObjectId(practicante_id);
+    } catch {
+      practicanteObjId = practicante_id;
+    }
+
     const updateResult = await empresasCollection.updateOne(
-      { 
+      {
         _id: new ObjectId(id),
-        "practicantes_asignados.practicante_id": practicante_id
+        $or: [
+          { "practicantes_asignados.practicante_id": practicante_id },
+          { "practicantes_asignados.practicante_id": practicanteObjId }
+        ]
       },
       {
         $set: {

@@ -75,12 +75,31 @@ Ubicación: `src/components/admin/`
 - Botón crear estudiante
 - Link a detalles completos
 
-### FlowDocumentation.jsx
+### FlowDocumentation.jsx (DEPRECATED - ver DocumentacionFlujoSelector)
 - Renderiza documentación de temp-info
 - Accordion por stage
 - Timeline visual
 - Links a secciones admin
 - Búsqueda en contenido
+
+### DocumentacionFlujoSelector.jsx
+- Selector interactivo: Estudiantes vs Empresas flow
+- Expandable sections con stage-specific info
+- Flow diagrams con colored icons
+- Tips y estado cards
+- Callout "Nota a tener en cuenta" (conditional)
+
+### BuscadorPracticantes.jsx
+- Búsqueda + 4 filtros: Pago | Usuario | Estado | EstadoPráctica
+- Debounce 500ms en búsqueda
+- Conecta a API `/api/practicantes/buscar`
+- Estados en window.currentResults, window.currentPagination
+
+### TablaPracticantes.jsx (si existe)
+- Renderiza tabla con datos de window.currentResults
+- Sorting client-side (handleSort)
+- 9 columnas: Practicante | Correo | Cédula | EstadoLaboral | Estado | EstadoPráctica | FechaCreación | Gestión | Acciones
+- Badges de color para estados
 
 ### StatCard.jsx
 - Cards de estadísticas en dashboard
