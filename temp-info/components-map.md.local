@@ -145,3 +145,23 @@ Ubicación: `src/pages/api/`
 - `POST /api/validacion-pago/validar` → Aprobar/rechazar
 - `POST /api/estudiantes/crear` → Crear usuario estudiante
 - `GET /api/estudiantes-por-crear` → Lista para admin
+
+## COMPONENTES SISTEMA DE PRÁCTICAS
+Ubicación: `src/components/admin/`
+
+### RecursoPracticas.jsx
+- Props: recurso{}, tipo, label, esEditable, soloLectura, onChange, onVerificar
+- Modo display: solo lectura (mostrar URL como link, nota, notas adicionales)
+- Modo editar: inputs para URL, nota (0-5), notas adicionales
+- Auto-save: onChange se dispara en cada cambio de campo y verificado
+- Integrado en: Seguimiento, Auto-evaluación, ARL, Certificado
+- Pattern: onChange pasado a DetallesProcesoPracticas → handleGuardar()
+
+### DetallesProcesoPracticas.jsx
+- Props: procesoPracticasId
+- Tabs: Evaluación, Seguimiento, Auto-evaluación, ARL, Certificado, ATLAS, Anexos
+- Auto-save en cambios: setProceso inmediato + handleGuardar() async
+- Sección EVALUACIÓN: 4 notas (0-5), enlace, notasAdicionales
+- Sección ATLAS: 3 subsecciones (autorizacionDocente, autorizacionEstudiante, relacionTrabos)
+- Toggle esConsultoria: show/hide tab Certificado
+- handleGuardar() patrón: updateData spread + PUT /api/proceso-practicas/{id}
