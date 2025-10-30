@@ -34,6 +34,9 @@ try {
 
   if (!solicitud) {
     error = "Solicitud no encontrada";
+  } else {
+    // Convert ObjectId to string for client-side serialization
+    solicitud._id = solicitud._id.toString();
   }
 } catch (err) {
   console.error("Error al obtener solicitud:", err);

@@ -33,9 +33,16 @@ export async function GET({ request, cookies }) {
     const db = await connectDB();
     const usersCollection = db.collection("users");
 
-    // Obtener todos los usuarios (sin mostrar contraseñas)
+    // Obtener parámetro de filtro rol si existe
+    const url = new URL(request.url);
+    const rolFilter = url.searchParams.get("rol");
+
+    // Construir query
+    const query = rolFilter ? { role: rolFilter } : {};
+
+    // Obtener usuarios (sin mostrar contraseñas)
     const usuarios = await usersCollection
-      .find({})
+      .find(query)
       .project({ password: 0 })
       .sort({ createdAt: -1 })
       .toArray();

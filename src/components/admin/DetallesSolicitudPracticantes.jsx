@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AlertCircle, CheckCircle, Loader2, Check, X, ArrowLeft } from "lucide-react";
+import ModalConfirmacionAprobacion from "./ModalConfirmacionAprobacion";
 
 export default function DetallesSolicitudPracticantes({ solicitud: initialSolicitud }) {
   const [solicitud, setSolicitud] = useState(initialSolicitud);
@@ -7,6 +8,8 @@ export default function DetallesSolicitudPracticantes({ solicitud: initialSolici
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [notas, setNotas] = useState(initialSolicitud.notas_director || "");
+  const [showModalAprobacion, setShowModalAprobacion] = useState(false);
+  const [errorModal, setErrorModal] = useState("");
 
   const handleEstadoChange = async (nuevoEstado) => {
     setLoading(true);
@@ -61,6 +64,36 @@ export default function DetallesSolicitudPracticantes({ solicitud: initialSolici
       }
     } catch (err) {
       setError("Error de conexión");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAprobarSolicitud = async () => {
+    setLoading(true);
+    setErrorModal("");
+
+    try {
+      const res = await fetch(`/api/solicitudes-practicantes/${solicitud._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estado: "aprobada",
+          notas_director: notas,
+          crearEmpresa: true
+        })
+      });
+
+      if (res.ok) {
+        setSolicitud({ ...solicitud, estado: "aprobada", notas_director: notas });
+        setSuccess("Solicitud aprobada exitosamente. Empresa creada correctamente.");
+        setShowModalAprobacion(false);
+      } else {
+        const data = await res.json();
+        setErrorModal(data.error || "Error al aprobar la solicitud");
+      }
+    } catch (err) {
+      setErrorModal("Error de conexión al servidor");
     } finally {
       setLoading(false);
     }
@@ -302,12 +335,12 @@ export default function DetallesSolicitudPracticantes({ solicitud: initialSolici
           {solicitud.estado === "pendiente_revision" && (
             <>
               <button
-                onClick={() => handleEstadoChange("en_revision")}
+                onClick={() => setShowModalAprobacion(true)}
                 disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-medium"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                Iniciar Revisión
+                Aprobar
               </button>
               <button
                 onClick={() => handleEstadoChange("rechazada")}
@@ -348,6 +381,19 @@ export default function DetallesSolicitudPracticantes({ solicitud: initialSolici
           )}
         </div>
       </div>
+
+      {/* Modal de confirmación de aprobación */}
+      <ModalConfirmacionAprobacion
+        isOpen={showModalAprobacion}
+        onClose={() => {
+          setShowModalAprobacion(false);
+          setErrorModal("");
+        }}
+        onConfirm={handleAprobarSolicitud}
+        loading={loading}
+        error={errorModal}
+        empresaNombre={solicitud.nombre_empresa}
+      />
     </div>
   );
 }

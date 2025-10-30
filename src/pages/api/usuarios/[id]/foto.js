@@ -45,27 +45,27 @@ export async function GET({ params }) {
 
     if (!ObjectId.isValid(id)) {
       return new Response(
-        JSON.stringify({ error: "Invalid practicante ID" }),
+        JSON.stringify({ error: "Invalid user ID" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
     const db = await connectDB();
-    const practicantesCollection = db.collection("practicantes");
-    const practicante = await practicantesCollection.findOne({
+    const usersCollection = db.collection("users");
+    const user = await usersCollection.findOne({
       _id: new ObjectId(id)
     });
 
-    if (!practicante) {
+    if (!user) {
       return new Response(
-        JSON.stringify({ error: "Practicante not found" }),
+        JSON.stringify({ error: "User not found" }),
         { status: 404, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // If practicante has a photo, return it
-    if (practicante.foto && practicante.foto.data) {
-      const fotoData = practicante.foto;
+    // If user has a photo, return it
+    if (user.foto && user.foto.data) {
+      const fotoData = user.foto;
       const imageBuffer = Buffer.from(fotoData.data, "base64");
 
       return new Response(imageBuffer, {
@@ -78,7 +78,7 @@ export async function GET({ params }) {
     }
 
     // If no photo, generate avatar with initials
-    const avatarSVG = generateAvatarSVG(practicante.nombres, practicante.apellidos);
+    const avatarSVG = generateAvatarSVG(user.nombres, user.apellidos);
 
     return new Response(avatarSVG, {
       status: 200,
@@ -88,7 +88,7 @@ export async function GET({ params }) {
       }
     });
   } catch (error) {
-    console.error("Error al obtener foto:", error);
+    console.error("Error al obtener foto del usuario:", error);
     return new Response(
       JSON.stringify({ error: "Error interno del servidor" }),
       { status: 500, headers: { "Content-Type": "application/json" } }

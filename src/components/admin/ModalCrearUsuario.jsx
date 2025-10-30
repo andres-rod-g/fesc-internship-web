@@ -20,6 +20,7 @@ export default function ModalCrearUsuario({ isOpen, onClose, onUsuarioCreado }) 
 
   const rolesDisponibles = [
     { value: "admin", label: "Administrador", color: "bg-red-100 text-red-800" },
+    { value: "profesor", label: "Docente", color: "bg-purple-100 text-purple-800" },
     { value: "registro_control", label: "Registro y Control", color: "bg-blue-100 text-blue-800" },
     { value: "estudiante", label: "Estudiante", color: "bg-green-100 text-green-800" }
   ];

@@ -48,7 +48,7 @@ export async function POST({ request, cookies }) {
       );
     }
 
-    const rolesValidos = ["admin", "registro_control", "estudiante"];
+    const rolesValidos = ["admin", "profesor", "registro_control", "estudiante"];
     if (!rolesValidos.includes(role)) {
       return new Response(
         JSON.stringify({ error: `Rol inválido. Roles válidos: ${rolesValidos.join(", ")}` }),
