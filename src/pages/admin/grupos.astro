@@ -1,0 +1,43 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import GestorGrupos from "~/components/admin/GestorGrupos.jsx";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (user.role !== "admin" && user.role !== "profesor") {
+  return Astro.redirect("/admin/validaciones-pago");
+}
+---
+
+<AdminLayout title="Grupos | FESC">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div>
+      <nav class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+        <a href="/admin/dashboard" class="hover:text-accent transition-colors">Dashboard</a>
+        <span>/</span>
+        <span class="text-gray-800">Grupos</span>
+      </nav>
+      <h1 class="text-3xl font-bold text-gray-800">Gestión de Grupos</h1>
+      <p class="text-gray-600 mt-1">Crea y administra los grupos de prácticas profesionales</p>
+    </div>
+
+    <!-- Contenido principal -->
+    <GestorGrupos client:load />
+  </div>
+</AdminLayout>

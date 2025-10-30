@@ -1,0 +1,266 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import DetallesProcesoPracticas from "~/components/admin/DetallesProcesoPracticas.jsx";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (user.role !== "admin" && user.role !== "director" && user.role !== "profesor") {
+  return Astro.redirect("/");
+}
+
+const { id } = Astro.params;
+let procesoPracticas = null;
+let error = null;
+let estudiante = null;
+
+try {
+  const db = await connectDB();
+
+  // Primero intentar obtener como ID de proceso
+  let query = {};
+  let isProcessId = false;
+
+  if (ObjectId.isValid(id)) {
+    query = { _id: new ObjectId(id) };
+    isProcessId = true;
+  }
+
+  procesoPracticas = await db.collection("proceso-practicas").findOne(query);
+
+  // Si no encuentra por ID de proceso, buscar por ID de estudiante
+  if (!procesoPracticas && !isProcessId) {
+    procesoPracticas = await db.collection("proceso-practicas").findOne({
+      estudianteId: new ObjectId(id)
+    });
+  }
+
+  // Si aún no existe, crear uno nuevo
+  if (!procesoPracticas) {
+    if (!ObjectId.isValid(id)) {
+      error = "ID inválido";
+    } else {
+      const estudianteExistente = await db.collection("users").findOne({
+        _id: new ObjectId(id)
+      });
+
+      if (!estudianteExistente) {
+        error = "Estudiante no encontrado";
+      } else {
+        // Buscar el grupo al que pertenece el estudiante
+        const grupoData = await db.collection("grupos").findOne({
+          estudiantes: new ObjectId(id)
+        });
+
+        if (!grupoData) {
+          error = "El estudiante no pertenece a ningún grupo";
+        } else {
+          // Buscar el practicante por email del estudiante
+          let practicanteId = null;
+          if (estudianteExistente && estudianteExistente.email) {
+            const practicante = await db.collection("practicantes").findOne({
+              correo_institucional: estudianteExistente.email
+            });
+
+            if (practicante) {
+              practicanteId = practicante._id;
+            }
+          }
+
+          // Crear recursos de ARL y ATLAS primero
+          const arlResource = await db.collection("recursos").insertOne({
+            procesoPracticasId: null,
+            usuarioId: new ObjectId(id),
+            grupoId: grupoData._id,
+            tipo: "arl",
+            titulo: "",
+            url: "",
+            nota: null,
+            notasAdicionales: "",
+            verificado: false,
+            verificacionRequerida: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          const atlasAutorizacionDocenteResource = await db.collection("recursos").insertOne({
+            procesoPracticasId: null,
+            usuarioId: new ObjectId(id),
+            grupoId: grupoData._id,
+            tipo: "atlas",
+            subtipo: "autorizacionDocente",
+            titulo: "",
+            url: "",
+            verificado: false,
+            verificacionRequerida: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          const atlasAutorizacionEstudianteResource = await db.collection("recursos").insertOne({
+            procesoPracticasId: null,
+            usuarioId: new ObjectId(id),
+            grupoId: grupoData._id,
+            tipo: "atlas",
+            subtipo: "autorizacionEstudiante",
+            titulo: "",
+            url: "",
+            verificado: false,
+            verificacionRequerida: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          const atlasRelacionTrabosResource = await db.collection("recursos").insertOne({
+            procesoPracticasId: null,
+            usuarioId: new ObjectId(id),
+            grupoId: grupoData._id,
+            tipo: "atlas",
+            subtipo: "relacionTrabos",
+            titulo: "",
+            url: "",
+            verificado: false,
+            verificacionRequerida: true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+
+          // Crear nuevo proceso de prácticas
+          const nuevoProces = {
+            estudianteId: new ObjectId(id),
+            grupoId: grupoData._id,
+            practicanteId: practicanteId,
+            esConsultoria: false,
+
+            // Referencias a recursos
+            evaluacionId: null,
+            seguimiento: [],
+            autoevaluacion: [],
+            arlId: arlResource.insertedId.toString(),
+            certificadoId: null,
+            atlasAutorizacionDocenteId: atlasAutorizacionDocenteResource.insertedId.toString(),
+            atlasAutorizacionEstudianteId: atlasAutorizacionEstudianteResource.insertedId.toString(),
+            atlasRelacionTrabosId: atlasRelacionTrabosResource.insertedId.toString(),
+            anexos: [],
+            agenda: [],
+
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+
+          const result = await db.collection("proceso-practicas").insertOne(nuevoProces);
+          const procesoId = result.insertedId;
+
+          // Actualizar los recursos para que sepan a qué proceso pertenecen
+          await db.collection("recursos").updateMany(
+            {
+              _id: { $in: [
+                arlResource.insertedId,
+                atlasAutorizacionDocenteResource.insertedId,
+                atlasAutorizacionEstudianteResource.insertedId,
+                atlasRelacionTrabosResource.insertedId
+              ]}
+            },
+            { $set: { procesoPracticasId: procesoId } }
+          );
+
+          procesoPracticas = {
+            ...nuevoProces,
+            _id: procesoId
+          };
+        }
+      }
+    }
+  }
+
+  if (!error && procesoPracticas) {
+    // Obtener datos del estudiante
+    const estudianteData = await db.collection("users").findOne({
+      _id: procesoPracticas.estudianteId
+    });
+
+    if (estudianteData) {
+      estudiante = {
+        ...estudianteData,
+        _id: estudianteData._id.toString()
+      };
+    }
+
+    procesoPracticas._id = procesoPracticas._id.toString();
+    procesoPracticas.estudianteId = procesoPracticas.estudianteId.toString();
+    if (procesoPracticas.grupoId) {
+      procesoPracticas.grupoId = procesoPracticas.grupoId.toString();
+    }
+    if (procesoPracticas.practicanteId) {
+      procesoPracticas.practicanteId = procesoPracticas.practicanteId.toString();
+    }
+  }
+} catch (err) {
+  console.error("Error al obtener proceso de prácticas:", err);
+  error = "Error al cargar el proceso de prácticas";
+}
+---
+
+<AdminLayout title={`Proceso de Prácticas | FESC`}>
+  <div class="space-y-6">
+    <!-- Header -->
+    <div>
+      <nav class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+        <a href="/admin/grupos" class="hover:text-accent transition-colors">Grupos</a>
+        <span>/</span>
+        <a href="/admin/practicantes" class="hover:text-accent transition-colors">Practicantes</a>
+        <span>/</span>
+        <span class="text-gray-800">Proceso de Prácticas</span>
+      </nav>
+      <a href="/admin/practicantes" class="text-accent hover:text-red-700 font-medium inline-flex items-center gap-2 mb-4">
+        ← Volver a practicantes
+      </a>
+    </div>
+
+    {error ? (
+      <div class="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-lg">
+        <p>{error}</p>
+      </div>
+    ) : procesoPracticas && estudiante ? (
+      <>
+        <!-- Información del Estudiante -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+          <h2 class="text-2xl font-bold text-gray-800 mb-4">{estudiante.nombres} {estudiante.apellidos}</h2>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-gray-600">Email</p>
+              <p class="text-gray-900">{estudiante.email}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Usuario</p>
+              <p class="text-gray-900">@{estudiante.username}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detalles del Proceso -->
+        <DetallesProcesoPracticas client:load procesoPracticasId={procesoPracticas._id} />
+      </>
+    ) : (
+      <div class="text-center py-12">
+        <p class="text-gray-600">Cargando...</p>
+      </div>
+    )}
+  </div>
+</AdminLayout>

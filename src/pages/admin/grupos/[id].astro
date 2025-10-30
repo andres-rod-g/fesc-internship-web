@@ -1,0 +1,180 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import TablaEstudiantesGrupo from "~/components/admin/TablaEstudiantesGrupo.jsx";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (user.role !== "admin" && user.role !== "profesor") {
+  return Astro.redirect("/admin/grupos");
+}
+
+const { id } = Astro.params;
+let grupo = null;
+let error = null;
+let docentes = [];
+let estudiantes = [];
+
+try {
+  const db = await connectDB();
+
+  // Obtener grupo
+  grupo = await db.collection("grupos").findOne({ _id: new ObjectId(id) });
+
+  if (!grupo) {
+    error = "Grupo no encontrado";
+  } else {
+    // Obtener info de docentes y estudiantes
+    const docentesIds = grupo.docentes.map(id => new ObjectId(id));
+    const docentesData = await db.collection("users")
+      .find({ _id: { $in: docentesIds } })
+      .toArray();
+
+    const estudiantesIds = grupo.estudiantes.map(id => new ObjectId(id));
+
+    // Obtener datos de usuarios
+    const usuariosData = await db.collection("users")
+      .find({ _id: { $in: estudiantesIds } })
+      .toArray();
+
+    // Obtener datos de practicantes usando el email del usuario como correo_institucional
+    const emailsEstudiantes = usuariosData.map(u => u.email);
+    const practicantesData = await db.collection("practicantes")
+      .find({ correo_institucional: { $in: emailsEstudiantes } })
+      .toArray();
+
+    // Crear mapa de practicantes por email
+    const practicantesPorEmail = {};
+    practicantesData.forEach(p => {
+      practicantesPorEmail[p.correo_institucional] = p;
+    });
+
+    // Convertir ObjectIds a strings y agregar datos de practicante
+    const estudiantesConvertidos = usuariosData.map(est => {
+      const practicante = practicantesPorEmail[est.email];
+      return {
+        ...est,
+        _id: est._id.toString(),
+        // Si existe practicante, agregar su ID para obtener la foto
+        ...(practicante && {
+          practicante_id: practicante._id.toString(),
+          foto_url: practicante.foto_url
+        })
+      };
+    });
+
+    grupo = {
+      ...grupo,
+      _id: grupo._id.toString(),
+      docentes_info: docentesData,
+      estudiantes_info: estudiantesConvertidos
+    };
+  }
+} catch (err) {
+  console.error("Error al obtener grupo:", err);
+  error = "Error al cargar el grupo";
+}
+---
+
+<AdminLayout title={`Grupo ${grupo?.nombre || 'No encontrado'} | FESC`}>
+  <div class="space-y-6">
+    <!-- Header -->
+    <div>
+      <nav class="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+        <a href="/admin/grupos" class="hover:text-accent transition-colors">Grupos</a>
+        <span>/</span>
+        <span class="text-gray-800">{grupo?.nombre || 'Detalle'}</span>
+      </nav>
+      <a href="/admin/grupos" class="text-accent hover:text-red-700 font-medium inline-flex items-center gap-2 mb-4">
+        ← Volver a grupos
+      </a>
+    </div>
+
+    {error ? (
+      <div class="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-lg">
+        <p>{error}</p>
+      </div>
+    ) : grupo ? (
+      <>
+        <!-- Información General -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+          <h2 class="text-2xl font-bold text-gray-800 mb-6">{grupo.nombre}</h2>
+
+          <div className="mb-6">
+            <p class="text-sm text-gray-600 mb-1">Fecha de Creación</p>
+            <p class="text-lg font-medium text-gray-900">
+              {new Date(grupo.createdAt).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </p>
+          </div>
+
+          {grupo.observaciones && (
+            <div>
+              <p class="text-sm text-gray-600 mb-2">Observaciones</p>
+              <p class="text-gray-900 whitespace-pre-wrap">{grupo.observaciones}</p>
+            </div>
+          )}
+        </div>
+
+        <!-- Docentes -->
+        <div class="bg-white rounded-lg border border-gray-200 p-6">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">Docentes ({grupo.docentes_info?.length || 0})</h3>
+
+          {grupo.docentes_info && grupo.docentes_info.length > 0 ? (
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {grupo.docentes_info.map((docente) => (
+                <div key={docente._id} class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span class="text-sm font-semibold text-blue-700">
+                      {docente.nombres[0]}{docente.apellidos[0]}
+                    </span>
+                  </div>
+                  <div>
+                    <p class="font-medium text-gray-900">{docente.nombres} {docente.apellidos}</p>
+                    <p class="text-sm text-gray-600">@{docente.username}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p class="text-gray-500 text-center py-4">Sin docentes asignados</p>
+          )}
+        </div>
+
+        <!-- Estudiantes -->
+        <div>
+          <h3 class="text-xl font-bold text-gray-800 mb-4">Estudiantes ({grupo.estudiantes_info?.length || 0})</h3>
+          <TablaEstudiantesGrupo
+            client:load
+            estudiantes={grupo.estudiantes_info || []}
+            grupoId={grupo._id}
+            buscarEnBaseDatos={false}
+          />
+        </div>
+      </>
+    ) : (
+      <div class="text-center py-12">
+        <p class="text-gray-600">Cargando...</p>
+      </div>
+    )}
+  </div>
+</AdminLayout>
