@@ -13,6 +13,7 @@ export default function TablaEstudiantesGrupo({
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [procesandoEstudiante, setProcesandoEstudiante] = useState(null);
+  const [seguimientosMap, setSeguimientosMap] = useState({});
   const debounceTimerRef = useRef(null);
 
   // Búsqueda local
@@ -52,12 +53,57 @@ export default function TablaEstudiantesGrupo({
     }
   };
 
+  // Cargar seguimientos del grupo
+  const cargarSeguimientos = async () => {
+    if (!grupoId) return;
+
+    try {
+      const res = await fetch(`/api/seguimientos-practicas/listar?grupoId=${grupoId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const seguimientos = data.seguimientos || [];
+
+        // Crear un mapa de estudiante -> seguimientos exitosos
+        const map = {};
+        for (const estudiante of estudiantes) {
+          map[estudiante._id] = calcularSeguimientosExitosos(estudiante._id, seguimientos);
+        }
+        setSeguimientosMap(map);
+      }
+    } catch (err) {
+      console.error("Error al cargar seguimientos:", err);
+    }
+  };
+
+  const calcularSeguimientosExitosos = (estudianteId, seguimientos) => {
+    let exitosos = 0;
+    let total = 0;
+
+    for (const seguimiento of seguimientos) {
+      const entrada = seguimiento.entradas?.find((e) => e.estudianteId === estudianteId);
+      if (entrada) {
+        total++;
+        // Un seguimiento es exitoso si tiene: url, nota, verificado y firma (verificacionRequerida y está verificado)
+        if (entrada.recursoUrl && entrada.recursNota && entrada.recursoVerificado) {
+          exitosos++;
+        }
+      }
+    }
+
+    return { exitosos, total };
+  };
+
   // Efecto para búsqueda local
   useEffect(() => {
     if (!buscarEnBaseDatos) {
       performLocalSearch(search);
     }
   }, [estudiantes]);
+
+  // Efecto para cargar seguimientos
+  useEffect(() => {
+    cargarSeguimientos();
+  }, [grupoId, estudiantes]);
 
   // Efecto para búsqueda en base de datos con debounce
   useEffect(() => {
@@ -177,6 +223,39 @@ export default function TablaEstudiantesGrupo({
       key: "correo",
       label: "Email",
       render: (estudiante) => <span>{estudiante.correo_institucional || estudiante.email || "-"}</span>,
+    },
+    {
+      key: "seguimientos",
+      label: "Seguimientos",
+      render: (estudiante) => {
+        const stats = seguimientosMap[estudiante._id];
+        if (!stats) {
+          return <span className="text-gray-500 text-sm">-</span>;
+        }
+
+        const { exitosos, total } = stats;
+        const porcentaje = total > 0 ? Math.round((exitosos / total) * 100) : 0;
+
+        let bgColor = "bg-red-100";
+        let textColor = "text-red-700";
+        let borderColor = "border-red-300";
+
+        if (porcentaje === 100 && total > 0) {
+          bgColor = "bg-green-100";
+          textColor = "text-green-700";
+          borderColor = "border-green-300";
+        } else if (porcentaje >= 50) {
+          bgColor = "bg-yellow-100";
+          textColor = "text-yellow-700";
+          borderColor = "border-yellow-300";
+        }
+
+        return (
+          <div className={`px-3 py-1 rounded-full text-sm font-medium border ${bgColor} ${textColor} ${borderColor}`}>
+            {exitosos}/{total}
+          </div>
+        );
+      },
     },
   ];
 

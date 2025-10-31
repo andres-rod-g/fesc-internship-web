@@ -4,6 +4,7 @@ import RecursoPracticas from "./RecursoPracticas";
 import ListaRecursos from "./ListaRecursos";
 import AtlasDocumentos from "./AtlasDocumentos";
 import DocumentoARL from "./DocumentoARL";
+import SeguimientosProcesoTab from "./SeguimientosProcesoTab";
 import { AlertCircle, Loader2 } from "lucide-react";
 
 export default function DetallesProcesoPracticas({ procesoPracticasId }) {
@@ -17,6 +18,7 @@ export default function DetallesProcesoPracticas({ procesoPracticasId }) {
   const [arlData, setArlData] = useState(null);
   const [atlasDataMap, setAtlasDataMap] = useState({});
   const [anexosData, setAnexosData] = useState({}); // Mapa de anexo ID -> datos modificados
+  const [estudiantes, setEstudiantes] = useState([]);
 
   useEffect(() => {
     cargarProceso();
@@ -30,6 +32,11 @@ export default function DetallesProcesoPracticas({ procesoPracticasId }) {
         const data = await res.json();
         console.log("Proceso cargado:", data.procesoPracticas);
         setProceso(data.procesoPracticas);
+
+        // Cargar estudiantes del grupo si existe grupoId
+        if (data.procesoPracticas.grupoId) {
+          cargarEstudiantesDelGrupo(data.procesoPracticas.grupoId);
+        }
 
         // Cargar anexos si existen
         if (data.procesoPracticas.anexoIds && data.procesoPracticas.anexoIds.length > 0) {
@@ -45,6 +52,20 @@ export default function DetallesProcesoPracticas({ procesoPracticasId }) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const cargarEstudiantesDelGrupo = async (grupoId) => {
+    try {
+      const res = await fetch(`/api/grupos/${grupoId}/estudiantes`);
+      if (res.ok) {
+        const data = await res.json();
+        setEstudiantes(data.estudiantes || []);
+      } else {
+        console.error("Error al cargar estudiantes del grupo");
+      }
+    } catch (err) {
+      console.error("Error al cargar estudiantes del grupo:", err);
     }
   };
 
@@ -427,14 +448,18 @@ export default function DetallesProcesoPracticas({ procesoPracticasId }) {
         {/* TAB: SEGUIMIENTO */}
         <TabsContent value="seguimiento">
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-6">Seguimiento</h3>
-            <ListaRecursos
-              recursos={proceso.seguimiento || []}
-              tipo="seguimiento"
-              label="Documentos de Seguimiento"
-              esEditable={isEditing}
-              onChange={(datos) => handleActualizarSeccion("seguimiento", datos)}
-            />
+            <h3 className="text-xl font-bold text-gray-800 mb-6">Seguimiento de Prácticas</h3>
+            {proceso && proceso.grupoId ? (
+              <SeguimientosProcesoTab
+                procesoPracticasId={proceso._id}
+                grupoId={proceso.grupoId}
+                estudiantes={estudiantes}
+              />
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No hay grupo asignado a este proceso de prácticas</p>
+              </div>
+            )}
           </div>
         </TabsContent>
 

@@ -1,6 +1,8 @@
 ---
 import AdminLayout from "~/layouts/AdminLayout.astro";
 import TablaEstudiantesGrupo from "~/components/admin/TablaEstudiantesGrupo.jsx";
+import SeguimientosSection from "~/components/admin/SeguimientosSection.jsx";
+import GrupoTabs from "~/components/admin/GrupoTabs.jsx";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "~/env";
 import { connectDB } from "~/utils/db.js";
@@ -160,16 +162,13 @@ try {
           )}
         </div>
 
-        <!-- Estudiantes -->
-        <div>
-          <h3 class="text-xl font-bold text-gray-800 mb-4">Estudiantes ({grupo.estudiantes_info?.length || 0})</h3>
-          <TablaEstudiantesGrupo
-            client:load
-            estudiantes={grupo.estudiantes_info || []}
-            grupoId={grupo._id}
-            buscarEnBaseDatos={false}
-          />
-        </div>
+        <!-- Tabs: Estudiantes y Seguimientos -->
+        <GrupoTabs
+          client:load
+          grupoId={grupo._id}
+          estudiantes={grupo.estudiantes_info || []}
+          userRole={user.role}
+        />
       </>
     ) : (
       <div class="text-center py-12">
