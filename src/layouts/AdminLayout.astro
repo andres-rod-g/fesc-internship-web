@@ -25,6 +25,7 @@ let badges = {
   validaciones_pago: 0,
   estudiantes_por_crear: 0,
   solicitudes_pendientes: 0,
+  validacion_firmas: 0,
 };
 
 if (user) {
@@ -49,11 +50,46 @@ if (user) {
       badges.solicitudes_pendientes = await db.collection("solicitudes_practicantes").countDocuments({
         estado: "pendiente_revision"
       });
+
+      badges.validacion_firmas = await db.collection("recursos").countDocuments({
+        verificacionRequerida: true,
+        verificado: { $ne: true },
+        $and: [
+          { url: { $exists: true } },
+          { url: { $ne: null } },
+          { url: { $ne: "" } },
+          { url: { $regex: /\S/ } }
+        ]
+      });
     }
 
     if (user.role === "director") {
       badges.solicitudes_pendientes = await db.collection("solicitudes_practicantes").countDocuments({
         estado: "pendiente_revision"
+      });
+
+      badges.validacion_firmas = await db.collection("recursos").countDocuments({
+        verificacionRequerida: true,
+        verificado: { $ne: true },
+        $and: [
+          { url: { $exists: true } },
+          { url: { $ne: null } },
+          { url: { $ne: "" } },
+          { url: { $regex: /\S/ } }
+        ]
+      });
+    }
+
+    if (user.role === "director_practicas") {
+      badges.validacion_firmas = await db.collection("recursos").countDocuments({
+        verificacionRequerida: true,
+        verificado: { $ne: true },
+        $and: [
+          { url: { $exists: true } },
+          { url: { $ne: null } },
+          { url: { $ne: "" } },
+          { url: { $regex: /\S/ } }
+        ]
       });
     }
   } catch (error) {
@@ -272,13 +308,20 @@ if (user) {
               </a>
 
               <a href="/admin/validacion-firmas"
-                 class={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
+                 class={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
                    isActive('/admin/validacion-firmas')
                      ? 'bg-accent text-white'
                      : 'text-gray-700 hover:bg-gray-100 hover:text-accent'
                  }`}>
-                <Stamp className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                <span class="font-medium">Validación de Firmas</span>
+                <div class="flex items-center gap-3">
+                  <Stamp className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span class="font-medium">Validación de Firmas</span>
+                </div>
+                {badges.validacion_firmas > 0 && (
+                  <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-600 rounded-full">
+                    {badges.validacion_firmas}
+                  </span>
+                )}
               </a>
             </div>
 
@@ -329,13 +372,20 @@ if (user) {
               </a>
 
               <a href="/admin/validacion-firmas"
-                 class={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
+                 class={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
                    isActive('/admin/validacion-firmas')
                      ? 'bg-accent text-white'
                      : 'text-gray-700 hover:bg-gray-100 hover:text-accent'
                  }`}>
-                <Stamp className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                <span class="font-medium">Validación de Firmas</span>
+                <div class="flex items-center gap-3">
+                  <Stamp className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  <span class="font-medium">Validación de Firmas</span>
+                </div>
+                {badges.validacion_firmas > 0 && (
+                  <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-600 rounded-full">
+                    {badges.validacion_firmas}
+                  </span>
+                )}
               </a>
             </div>
 
