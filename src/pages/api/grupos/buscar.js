@@ -15,65 +15,87 @@ export async function POST(context) {
 
     const db = await connectDB();
     const gruposCollection = db.collection("grupos");
-    const usuariosCollection = db.collection("users");
 
     const terminoBusqueda = busqueda.trim();
     const regex = new RegExp(terminoBusqueda, "i"); // búsqueda case-insensitive
 
-    // Buscar grupos por nombre
-    const gruposPorNombre = await gruposCollection
-      .find({
-        nombre: regex
-      })
+    // Buscar grupos por nombre, semestre o docentes usando aggregation
+    const gruposResultado = await gruposCollection
+      .aggregate([
+        {
+          $match: {
+            $or: [
+              { nombre: regex },
+              { semestre: { $regex: terminoBusqueda, $options: "i" } }
+            ]
+          }
+        },
+        {
+          $lookup: {
+            from: "users",
+            let: { docentes: "$docentes" },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $in: ["$_id", "$$docentes"]
+                  }
+                }
+              },
+              {
+                $match: {
+                  $or: [
+                    { nombres: regex },
+                    { apellidos: regex }
+                  ]
+                }
+              }
+            ],
+            as: "docentesCoincidentes"
+          }
+        },
+        {
+          $addFields: {
+            tieneDocenteCoincidencia: {
+              $gt: [{ $size: "$docentesCoincidentes" }, 0]
+            }
+          }
+        },
+        {
+          $match: {
+            $or: [
+              { nombre: regex },
+              { semestre: { $regex: terminoBusqueda, $options: "i" } },
+              { tieneDocenteCoincidencia: true }
+            ]
+          }
+        },
+        {
+          $project: {
+            _id: { $toString: "$_id" },
+            nombre: 1,
+            docentes: {
+              $map: {
+                input: "$docentes",
+                as: "docId",
+                in: { $toString: "$$docId" }
+              }
+            },
+            estudiantes: {
+              $map: {
+                input: "$estudiantes",
+                as: "estId",
+                in: { $toString: "$$estId" }
+              }
+            },
+            semestre: 1,
+            observaciones: 1,
+            createdAt: 1,
+            updatedAt: 1
+          }
+        }
+      ])
       .toArray();
-
-    // Obtener IDs de todos los grupos para búsqueda por docente
-    const todosLosGrupos = await gruposCollection.find({}).toArray();
-
-    // Buscar docentes que coincidan con el término
-    const docentesQueCoinciden = await usuariosCollection
-      .find({
-        $or: [
-          { nombres: regex },
-          { apellidos: regex }
-        ]
-      })
-      .toArray();
-
-    // Encontrar grupos que tengan estos docentes
-    const gruposPorDocente = todosLosGrupos.filter((grupo) => {
-      if (!grupo.docentes || grupo.docentes.length === 0) {
-        return false;
-      }
-
-      // Verificar si alguno de los docentes del grupo coincide
-      return grupo.docentes.some((docenteId) => {
-        return docentesQueCoinciden.some((docente) => docente._id.toString() === docenteId.toString());
-      });
-    });
-
-    // Combinar resultados sin duplicados
-    const gruposSet = new Set();
-    const gruposResultado = [];
-
-    gruposPorNombre.forEach((grupo) => {
-      gruposSet.add(grupo._id.toString());
-      gruposResultado.push({
-        ...grupo,
-        _id: grupo._id.toString()
-      });
-    });
-
-    gruposPorDocente.forEach((grupo) => {
-      const grupoId = grupo._id.toString();
-      if (!gruposSet.has(grupoId)) {
-        gruposSet.add(grupoId);
-        gruposResultado.push({
-          ...grupo,
-          _id: grupoId
-        });
-      }
-    });
 
     return new Response(
       JSON.stringify({

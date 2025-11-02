@@ -1,12 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AlertCircle, CheckCircle, Loader2, X } from "lucide-react";
 import Combobox from "../ui/Combobox";
 import { generateSemesters } from "../../utils/semestres";
 
-export default function ModalCrearGrupo({
+export default function ModalEditarGrupo({
   isOpen,
   onClose,
-  onGrupoCreado,
+  onGrupoActualizado,
+  grupo,
   docentes,
   estudiantes
 }) {
@@ -20,6 +21,18 @@ export default function ModalCrearGrupo({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (grupo && isOpen) {
+      setForm({
+        nombre: grupo.nombre || "",
+        docentes: grupo.docentes || [],
+        estudiantes: grupo.estudiantes || [],
+        semestre: grupo.semestre || "",
+        observaciones: grupo.observaciones || ""
+      });
+    }
+  }, [grupo, isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -47,26 +60,19 @@ export default function ModalCrearGrupo({
     setLoading(true);
 
     try {
-      const res = await fetch("/api/grupos/crear", {
-        method: "POST",
+      const res = await fetch(`/api/grupos/${grupo._id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
       });
 
       if (res.ok) {
         const data = await res.json();
-        onGrupoCreado(data.grupo);
-        setForm({
-          nombre: "",
-          docentes: [],
-          estudiantes: [],
-          semestre: "",
-          observaciones: ""
-        });
+        onGrupoActualizado(data.grupo);
         onClose();
       } else {
         const data = await res.json();
-        setError(data.error || "Error al crear el grupo");
+        setError(data.error || "Error al actualizar el grupo");
       }
     } catch (err) {
       setError("Error de conexión al servidor");
@@ -75,13 +81,13 @@ export default function ModalCrearGrupo({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !grupo) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-screen overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold text-gray-800">Crear Nuevo Grupo</h3>
+          <h3 className="text-2xl font-bold text-gray-800">Editar Grupo</h3>
           <button
             onClick={onClose}
             disabled={loading}
@@ -198,7 +204,7 @@ export default function ModalCrearGrupo({
               className="flex-1 px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              {loading ? "Creando..." : "Crear Grupo"}
+              {loading ? "Guardando..." : "Guardar Cambios"}
             </button>
           </div>
         </form>

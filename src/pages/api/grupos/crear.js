@@ -47,6 +47,7 @@ export async function POST(context) {
       nombre: body.nombre.trim(),
       docentes: (body.docentes || []).map(id => new ObjectId(id)),
       estudiantes: (body.estudiantes || []).map(id => new ObjectId(id)),
+      semestre: body.semestre || "",
       observaciones: body.observaciones || "",
       createdAt: new Date(),
       updatedAt: new Date(),

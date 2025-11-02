@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, AlertCircle, CheckCircle, Loader2, Eye, Edit2, Trash2, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import ModalCrearGrupo from "./ModalCrearGrupo";
+import ModalEditarGrupo from "./ModalEditarGrupo";
 
 export default function GestorGrupos() {
   const [grupos, setGrupos] = useState([]);
@@ -9,6 +10,8 @@ export default function GestorGrupos() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [grupoEditando, setGrupoEditando] = useState(null);
   const [docentes, setDocentes] = useState([]);
   const [estudiantes, setEstudiantes] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -128,6 +131,18 @@ export default function GestorGrupos() {
     setGrupos([nuevoGrupo, ...grupos]);
     setSuccess("Grupo creado exitosamente");
     setTimeout(() => setSuccess(""), 3000);
+  };
+
+  const handleGrupoActualizado = (grupoActualizado) => {
+    setGrupos(grupos.map(g => g._id === grupoActualizado._id ? grupoActualizado : g));
+    setGruposOriginales(gruposOriginales.map(g => g._id === grupoActualizado._id ? grupoActualizado : g));
+    setSuccess("Grupo actualizado exitosamente");
+    setTimeout(() => setSuccess(""), 3000);
+  };
+
+  const handleEditarGrupo = (grupo) => {
+    setGrupoEditando(grupo);
+    setShowEditModal(true);
   };
 
   const handleEliminarGrupo = async (grupoId) => {
@@ -252,6 +267,7 @@ export default function GestorGrupos() {
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Nombre del Grupo</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Docentes</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Estudiantes</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Semestre</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Observaciones</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-gray-700">Acciones</th>
                   </tr>
@@ -293,6 +309,15 @@ export default function GestorGrupos() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
+                          {grupo.semestre ? (
+                            <span className="inline-block bg-purple-100 text-purple-800 text-xs px-3 py-1 rounded-full font-medium">
+                              {grupo.semestre}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500 text-sm">Sin semestre</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
                           <p className="text-gray-700 text-sm max-w-xs truncate">
                             {grupo.observaciones || "-"}
                           </p>
@@ -306,6 +331,13 @@ export default function GestorGrupos() {
                               <Eye className="w-4 h-4" />
                               Ver
                             </a>
+                            <button
+                              onClick={() => handleEditarGrupo(grupo)}
+                              className="inline-flex items-center gap-1 px-3 py-2 bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200 transition-colors text-sm font-medium"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                              Editar
+                            </button>
                             <button
                               onClick={() => handleEliminarGrupo(grupo._id)}
                               className="inline-flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors text-sm font-medium"
@@ -362,6 +394,19 @@ export default function GestorGrupos() {
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         onGrupoCreado={handleGrupoCreado}
+        docentes={docentes}
+        estudiantes={estudiantes}
+      />
+
+      {/* Modal para editar grupo */}
+      <ModalEditarGrupo
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setGrupoEditando(null);
+        }}
+        onGrupoActualizado={handleGrupoActualizado}
+        grupo={grupoEditando}
         docentes={docentes}
         estudiantes={estudiantes}
       />
