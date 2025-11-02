@@ -32,7 +32,7 @@ export async function POST({ request, cookies }) {
     const db = await connectDB();
 
     // Update the resource to mark as verified
-    const result = await db.collection('recursos_practicas').updateOne(
+    const result = await db.collection('recursos').updateOne(
       { _id: new ObjectId(recursoId) },
       {
         $set: {
