@@ -73,35 +73,94 @@ export async function GET({ request, cookies }) {
       sortObj = { updatedAt: 1 };
     }
 
-    // Find resources
-    const recursosNoVerificados = await db.collection('recursos')
-      .find(query)
-      .sort(sortObj)
-      .toArray();
-
-    // Populate with student and user details
-    const recursosConDetalles = await Promise.all(
-      recursosNoVerificados.map(async (recurso) => {
-        let usuario = null;
-        let estudiante = null;
-
-        // Get user/student details
-        if (recurso.usuarioId) {
-          usuario = await db.collection('users')
-            .findOne({ _id: recurso.usuarioId });
-
-          if (!usuario) {
-            estudiante = await db.collection('estudiantes')
-              .findOne({ _id: recurso.usuarioId });
+    // Use aggregation pipeline to fetch all related data in a single query
+    const recursosConDetalles = await db.collection('recursos')
+      .aggregate([
+        { $match: query },
+        { $sort: sortObj },
+        // Lookup users
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'usuarioId',
+            foreignField: '_id',
+            as: 'usuarioData'
+          }
+        },
+        // Lookup estudiantes (fallback if no user found)
+        {
+          $lookup: {
+            from: 'estudiantes',
+            localField: 'usuarioId',
+            foreignField: '_id',
+            as: 'estudianteData'
+          }
+        },
+        // Lookup proceso-practicas
+        {
+          $lookup: {
+            from: 'proceso-practicas',
+            localField: 'procesoPracticasId',
+            foreignField: '_id',
+            as: 'procesoData'
+          }
+        },
+        // Unwind arrays for easier processing
+        {
+          $addFields: {
+            usuario: {
+              $cond: [
+                { $gt: [{ $size: '$usuarioData' }, 0] },
+                { $arrayElemAt: ['$usuarioData', 0] },
+                { $arrayElemAt: ['$estudianteData', 0] }
+              ]
+            },
+            proceso: { $arrayElemAt: ['$procesoData', 0] }
+          }
+        },
+        // Lookup grupos via proceso.grupoId
+        {
+          $lookup: {
+            from: 'grupos',
+            localField: 'proceso.grupoId',
+            foreignField: '_id',
+            as: 'grupoData'
+          }
+        },
+        // Lookup practicantes by email
+        {
+          $lookup: {
+            from: 'practicantes',
+            let: { email: { $ifNull: ['$usuario.correo_institucional', '$usuario.email'] } },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$correo_institucional', '$$email'] } } }
+            ],
+            as: 'practicanteData'
+          }
+        },
+        // Final projection
+        {
+          $project: {
+            _id: { $toString: '$_id' },
+            procesoPracticasId: 1,
+            usuarioId: 1,
+            tipo: 1,
+            subtipo: 1,
+            url: 1,
+            titulo: 1,
+            nota: 1,
+            notasAdicionales: 1,
+            verificacionRequerida: 1,
+            verificado: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            usuario: 1,
+            grupo: { $arrayElemAt: ['$grupoData', 0] },
+            practicanteId: { $toString: { $arrayElemAt: ['$practicanteData._id', 0] } }
           }
         }
-
-        return {
-          ...recurso,
-          usuario: usuario || estudiante
-        };
-      })
-    );
+      ])
+      .toArray();
 
     // Additional search filtering on populated data
     let filteredResults = recursosConDetalles;
