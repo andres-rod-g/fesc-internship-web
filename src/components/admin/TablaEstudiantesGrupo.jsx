@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Eye, Loader2 } from "lucide-react";
 import BuscadorEstudiantesGrupo from "./BuscadorEstudiantesGrupo";
 import TablaGenerica from "./TablaGenerica";
+import { calcularPromedio, formatearCalificacion, obtenerColorCalificacion } from "../../utils/calificaciones";
 
 export default function TablaEstudiantesGrupo({
   estudiantes = [],
@@ -14,6 +15,8 @@ export default function TablaEstudiantesGrupo({
   const [loading, setLoading] = useState(false);
   const [procesandoEstudiante, setProcesandoEstudiante] = useState(null);
   const [seguimientosMap, setSeguimientosMap] = useState({});
+  const [evaluacionesMap, setEvaluacionesMap] = useState({});
+  const [estudiantesConCalificaciones, setEstudiantesConCalificaciones] = useState(estudiantes);
   const debounceTimerRef = useRef(null);
 
   // Búsqueda local
@@ -127,8 +130,33 @@ export default function TablaEstudiantesGrupo({
     }
   }, [estudiantes]);
 
-  // Efecto para cargar seguimientos
+  // Cargar evaluaciones del grupo
+  const cargarEvaluaciones = async () => {
+    if (!grupoId) return;
+
+    try {
+      const res = await fetch(`/api/proceso-practicas/grupo-evaluaciones?grupoId=${grupoId}`);
+
+      if (res.ok) {
+        const data = await res.json();
+        const evaluacionesPorEstudiante = data.evaluacionesPorEstudiante || {};
+        setEvaluacionesMap(evaluacionesPorEstudiante);
+
+        // Merge evaluaciones con estudiantes
+        const estudiantesConEval = estudiantes.map(est => ({
+          ...est,
+          ...(evaluacionesPorEstudiante[est._id] || {})
+        }));
+        setEstudiantesConCalificaciones(estudiantesConEval);
+      }
+    } catch (err) {
+      console.error("Error al cargar evaluaciones:", err);
+    }
+  };
+
+  // Efecto para cargar evaluaciones y seguimientos
   useEffect(() => {
+    cargarEvaluaciones();
     cargarSeguimientos();
   }, [grupoId, estudiantes]);
 
@@ -252,6 +280,62 @@ export default function TablaEstudiantesGrupo({
       render: (estudiante) => <span>{estudiante.correo_institucional || estudiante.email || "-"}</span>,
     },
     {
+      key: "calificacion_1",
+      label: "Calif. 1",
+      render: (estudiante) => (
+        <span className="text-sm font-medium text-gray-700">
+          {formatearCalificacion(estudiante.calificacion_1)}
+        </span>
+      ),
+    },
+    {
+      key: "calificacion_2",
+      label: "Calif. 2",
+      render: (estudiante) => (
+        <span className="text-sm font-medium text-gray-700">
+          {formatearCalificacion(estudiante.calificacion_2)}
+        </span>
+      ),
+    },
+    {
+      key: "calificacion_3",
+      label: "Calif. 3",
+      render: (estudiante) => (
+        <span className="text-sm font-medium text-gray-700">
+          {formatearCalificacion(estudiante.calificacion_3)}
+        </span>
+      ),
+    },
+    {
+      key: "calificacion_4",
+      label: "Calif. 4",
+      render: (estudiante) => (
+        <span className="text-sm font-medium text-gray-700">
+          {formatearCalificacion(estudiante.calificacion_4)}
+        </span>
+      ),
+    },
+    {
+      key: "promedio",
+      label: "Promedio",
+      render: (estudiante) => {
+        const calificaciones = [
+          estudiante.calificacion_1,
+          estudiante.calificacion_2,
+          estudiante.calificacion_3,
+          estudiante.calificacion_4
+        ];
+        const promedio = calcularPromedio(calificaciones);
+        const colores = obtenerColorCalificacion(promedio);
+
+        return (
+          <div className={`px-3 py-1 rounded-full text-sm font-bold border ${colores.bg} ${colores.text} ${colores.border} text-center`}>
+            {promedio !== null ? promedio : "-"}
+          </div>
+        );
+      },
+    },
+    {
       key: "seguimientos",
       label: "Seguimientos",
       render: (estudiante) => {
@@ -322,20 +406,28 @@ export default function TablaEstudiantesGrupo({
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredEstudiantes.length > 0 ? (
-                    filteredEstudiantes.map((estudiante) => (
-                      <tr key={estudiante._id} className="hover:bg-gray-50">
-                        {columnas.map((columna) => (
-                          <td
-                            key={`${estudiante._id}-${columna.key}`}
-                            className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
-                          >
-                            {columna.render
-                              ? columna.render(estudiante)
-                              : estudiante[columna.key] || "-"}
-                          </td>
-                        ))}
-                      </tr>
-                    ))
+                    filteredEstudiantes.map((estudiante) => {
+                      // Merge estudiante data con calificaciones
+                      const estudianteConCalificaciones = {
+                        ...estudiante,
+                        ...(estudiantesConCalificaciones.find(e => e._id === estudiante._id) || {})
+                      };
+
+                      return (
+                        <tr key={estudiante._id} className="hover:bg-gray-50">
+                          {columnas.map((columna) => (
+                            <td
+                              key={`${estudiante._id}-${columna.key}`}
+                              className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                            >
+                              {columna.render
+                                ? columna.render(estudianteConCalificaciones)
+                                : estudianteConCalificaciones[columna.key] || "-"}
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td
