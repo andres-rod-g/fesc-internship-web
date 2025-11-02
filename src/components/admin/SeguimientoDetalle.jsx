@@ -31,28 +31,42 @@ export default function SeguimientoDetalle({
   const cargarRecursos = async (entradasList) => {
     try {
       setLoadingRecursos(true);
-      const recursosMap = {};
 
-      for (const entrada of entradasList) {
-        if (entrada.recursoId) {
-          try {
-            const res = await fetch(`/api/recursos/${entrada.recursoId}`);
-            if (res.ok) {
-              const data = await res.json();
-              // La respuesta puede venir como {recurso: {...}} o directamente como {...}
-              const recurso = data.recurso || data;
-              recursosMap[entrada.recursoId] = recurso;
-            } else {
-              console.error(`Error al cargar recurso ${entrada.recursoId}: ${res.status}`);
-            }
-          } catch (err) {
-            console.error(`Error al cargar recurso ${entrada.recursoId}:`, err);
-          }
-        }
+      // Obtener IDs de recursos de las entradas
+      const recursoIds = entradasList
+        .filter((entrada) => entrada.recursoId)
+        .map((entrada) => entrada.recursoId);
+
+      if (recursoIds.length === 0) {
+        setRecursos({});
+        return;
       }
 
-      console.log("Recursos cargados:", recursosMap);
-      setRecursos(recursosMap);
+      // Obtener todos los recursos en una sola llamada
+      const res = await fetch("/api/recursos-practicas/por-seguimiento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recursoIds })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const recursosMap = {};
+
+        // Mapear recursos por ID
+        (data.recursos || []).forEach((recurso) => {
+          recursosMap[recurso._id] = recurso;
+        });
+
+        console.log("Recursos cargados:", recursosMap);
+        setRecursos(recursosMap);
+      } else {
+        console.error("Error al cargar recursos:", res.status);
+        setRecursos({});
+      }
+    } catch (err) {
+      console.error("Error al cargar recursos:", err);
+      setRecursos({});
     } finally {
       setLoadingRecursos(false);
     }
@@ -378,6 +392,14 @@ export default function SeguimientoDetalle({
                       </div>
                     )}
                   </div>
+                  {entrada.recursoId && (
+                    <div className="mt-3 pt-2 border-t border-gray-200">
+                      <p className="text-xs text-gray-400 flex items-center gap-1">
+                        <span>🆔</span>
+                        <span>ID recurso: {entrada.recursoId}</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })
