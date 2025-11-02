@@ -53,38 +53,65 @@ export default function TablaEstudiantesGrupo({
     }
   };
 
-  // Cargar seguimientos del grupo
+  // Cargar seguimientos del grupo con todos sus recursos
   const cargarSeguimientos = async () => {
     if (!grupoId) return;
 
     try {
-      const res = await fetch(`/api/seguimientos-practicas/listar?grupoId=${grupoId}`);
+      // Obtener todos los seguimientos y recursos del grupo en una sola llamada
+      const res = await fetch("/api/recursos-practicas/grupo-seguimientos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grupoId })
+      });
+
       if (res.ok) {
         const data = await res.json();
-        const seguimientos = data.seguimientos || [];
+        const recursos = data.recursos || [];
+        const recursoIdToEntrada = data.recursoIdToEntrada || {};
 
-        // Crear un mapa de estudiante -> seguimientos exitosos
-        const map = {};
-        for (const estudiante of estudiantes) {
-          map[estudiante._id] = calcularSeguimientosExitosos(estudiante._id, seguimientos);
+        // Crear un mapa de recursoId -> recurso para búsqueda rápida
+        const recursoMap = {};
+        recursos.forEach((r) => {
+          recursoMap[r._id] = r;
+        });
+
+        // Obtener seguimientos del grupo
+        const seguimientosRes = await fetch(
+          `/api/seguimientos-practicas/listar?grupoId=${grupoId}`
+        );
+        if (seguimientosRes.ok) {
+          const seguimientosData = await seguimientosRes.json();
+          const seguimientos = seguimientosData.seguimientos || [];
+
+          // Crear un mapa de estudiante -> seguimientos exitosos
+          const map = {};
+          for (const estudiante of estudiantes) {
+            map[estudiante._id] = calcularSeguimientosExitosos(
+              estudiante._id,
+              seguimientos,
+              recursoMap
+            );
+          }
+          setSeguimientosMap(map);
         }
-        setSeguimientosMap(map);
       }
     } catch (err) {
       console.error("Error al cargar seguimientos:", err);
     }
   };
 
-  const calcularSeguimientosExitosos = (estudianteId, seguimientos) => {
+  const calcularSeguimientosExitosos = (estudianteId, seguimientos, recursoMap) => {
     let exitosos = 0;
     let total = 0;
 
     for (const seguimiento of seguimientos) {
       const entrada = seguimiento.entradas?.find((e) => e.estudianteId === estudianteId);
-      if (entrada) {
+      if (entrada && entrada.recursoId) {
         total++;
-        // Un seguimiento es exitoso si tiene: url, nota, verificado y firma (verificacionRequerida y está verificado)
-        if (entrada.recursoUrl && entrada.recursNota && entrada.recursoVerificado) {
+        // Verificar si el recurso tiene URL asignada usando el mapa
+        const recurso = recursoMap[entrada.recursoId];
+        if (recurso && recurso.url) {
           exitosos++;
         }
       }
