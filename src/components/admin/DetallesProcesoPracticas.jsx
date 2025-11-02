@@ -453,6 +453,7 @@ export default function DetallesProcesoPracticas({ procesoPracticasId }) {
               <SeguimientosProcesoTab
                 procesoPracticasId={proceso._id}
                 grupoId={proceso.grupoId}
+                estudianteId={proceso.estudianteId}
                 estudiantes={estudiantes}
               />
             ) : (
