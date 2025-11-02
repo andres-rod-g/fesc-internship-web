@@ -1,0 +1,282 @@
+---
+import AdminLayout from "~/layouts/AdminLayout.astro";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+import { CheckCircle, ExternalLink, Filter } from "lucide-react";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user) {
+  return Astro.redirect("/login");
+}
+
+if (!["admin", "director_practicas"].includes(user.role)) {
+  return Astro.redirect("/admin/dashboard");
+}
+
+const db = await connectDB();
+
+// Get all resources that require verification and are not yet verified
+const recursosNoVerificados = await db
+  .collection("recursos")
+  .find({
+    verificacionRequerida: true,
+    verificado: { $ne: true }
+  })
+  .sort({ createdAt: -1 })
+  .toArray();
+
+// Populate with student and user details
+const recursosConDetalles = await Promise.all(
+  recursosNoVerificados.map(async (recurso) => {
+    let usuario = null;
+    let estudiante = null;
+
+    // Get user/student details
+    if (recurso.usuarioId) {
+      usuario = await db
+        .collection("users")
+        .findOne({ _id: recurso.usuarioId });
+
+      if (!usuario) {
+        estudiante = await db
+          .collection("estudiantes")
+          .findOne({ _id: recurso.usuarioId });
+      }
+    }
+
+    return {
+      ...recurso,
+      usuario: usuario || estudiante,
+    };
+  })
+);
+---
+
+<AdminLayout title="Validación de Firmas | FESC">
+  <div class="space-y-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-800">
+            Validación de Firmas
+          </h1>
+          <p class="text-gray-600 mt-1">
+            Revisa y verifica los recursos de seguimiento de prácticas
+          </p>
+        </div>
+        <span class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-lg font-semibold">
+          {recursosConDetalles.length} pendientes
+        </span>
+      </div>
+    </div>
+
+    {
+      recursosConDetalles.length === 0 ? (
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">
+            Todos los recursos están verificados
+          </h3>
+          <p class="text-gray-600">No hay recursos pendientes de validación</p>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {recursosConDetalles.map((recurso) => (
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow flex flex-col">
+              <div class="flex-1">
+                {/* Información del estudiante */}
+                <div class="mb-4">
+                  <h3 class="text-sm font-semibold text-gray-800 mb-3">
+                    Estudiante
+                  </h3>
+                  {recurso.usuario ? (
+                    <div class="space-y-2 text-xs">
+                      <div>
+                        <p class="text-gray-600 font-medium">Nombre</p>
+                        <p class="text-gray-900 truncate">
+                          {recurso.usuario.nombres || recurso.usuario.name}{" "}
+                          {recurso.usuario.apellidos || ""}
+                        </p>
+                      </div>
+                      <div>
+                        <p class="text-gray-600 font-medium">Correo</p>
+                        <p class="text-gray-900 truncate text-xs">
+                          {recurso.usuario.correo_institucional || recurso.usuario.email}
+                        </p>
+                      </div>
+                      <div>
+                        <p class="text-gray-600 font-medium">Tipo</p>
+                        <p class="text-gray-900 capitalize text-xs">
+                          {recurso.tipo}
+                          {recurso.subtipo ? ` - ${recurso.subtipo}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p class="text-gray-500 text-xs">
+                      No encontrado
+                    </p>
+                  )}
+                </div>
+
+                {/* Información del recurso */}
+                <div class="border-t border-gray-200 pt-4">
+                  <h3 class="text-sm font-semibold text-gray-800 mb-3">
+                    Recurso
+                  </h3>
+                  <div class="space-y-2 text-xs">
+                    {recurso.url ? (
+                      <div>
+                        <p class="text-gray-600 font-medium">Enlace</p>
+                        <a
+                          href={recurso.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-blue-600 hover:text-blue-800 break-all inline-flex items-center gap-1 text-xs"
+                        >
+                          Ver enlace
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    ) : (
+                      <div>
+                        <p class="text-red-600 text-xs">Sin enlace</p>
+                      </div>
+                    )}
+
+                    {recurso.nota && (
+                      <div>
+                        <p class="text-gray-600 font-medium">Calificación</p>
+                        <p class="text-gray-900">{recurso.nota}/5</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p class="text-gray-600 font-medium">Creado</p>
+                      <p class="text-gray-900">
+                        {new Date(recurso.createdAt).toLocaleDateString(
+                          "es-ES"
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Acción de verificación */}
+              <button
+                onclick={`verificarRecurso('${recurso._id}')`}
+                class="mt-4 w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2 text-sm"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Verificar
+              </button>
+            </div>
+          ))}
+        </div>
+      )
+    }
+  </div>
+
+  <!-- Modal de confirmación -->
+  <div
+    id="modal-confirmacion"
+    class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+  >
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+      <h3 class="text-xl font-bold text-gray-800 mb-4">
+        Confirmar Verificación
+      </h3>
+      <p class="text-gray-600 mb-6">
+        ¿Estás seguro de que deseas verificar este recurso? Esta acción no se
+        puede deshacer.
+      </p>
+
+      <div class="flex gap-3">
+        <button
+          onclick="cerrarModal()"
+          class="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+        >
+          Cancelar
+        </button>
+        <button
+          id="modal-confirmar"
+          onclick="confirmarVerificacion()"
+          class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+        >
+          Verificar
+        </button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script is:inline>
+  let recursoIdSeleccionado = null;
+
+  function abrirModal(recursoId) {
+    recursoIdSeleccionado = recursoId;
+    document.getElementById("modal-confirmacion").classList.remove("hidden");
+  }
+
+  function cerrarModal() {
+    document.getElementById("modal-confirmacion").classList.add("hidden");
+    recursoIdSeleccionado = null;
+  }
+
+  function verificarRecurso(recursoId) {
+    abrirModal(recursoId);
+  }
+
+  async function confirmarVerificacion() {
+    if (!recursoIdSeleccionado) return;
+
+    const confirmarBtn = document.getElementById("modal-confirmar");
+    confirmarBtn.disabled = true;
+    confirmarBtn.textContent = "Verificando...";
+
+    try {
+      const res = await fetch("/api/recursos-practicas/verificar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recursoId: recursoIdSeleccionado }),
+      });
+
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        const data = await res.json();
+        alert(data.error || "Error al verificar el recurso");
+        confirmarBtn.disabled = false;
+        confirmarBtn.textContent = "Verificar";
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Error de conexión");
+      confirmarBtn.disabled = false;
+      confirmarBtn.textContent = "Verificar";
+    }
+  }
+
+  // Cerrar modal al hacer clic fuera
+  document
+    .getElementById("modal-confirmacion")
+    ?.addEventListener("click", function (e) {
+      if (e.target === this) {
+        cerrarModal();
+      }
+    });
+</script>
