@@ -94,8 +94,39 @@ const recursosConDetalles = await Promise.all(
         </div>
       ) : (
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {recursosConDetalles.map((recurso) => (
+          {recursosConDetalles.map((recurso) => {
+            // Determine chip color based on resource type
+            const getChipColor = (tipo, subtipo) => {
+              if (tipo === 'arl') return { bg: 'bg-red-100', text: 'text-red-800' };
+              if (tipo === 'atlas') {
+                if (subtipo === 'autorizacionDocente') return { bg: 'bg-blue-100', text: 'text-blue-800' };
+                if (subtipo === 'autorizacionEstudiante') return { bg: 'bg-purple-100', text: 'text-purple-800' };
+                if (subtipo === 'relacionTrabos') return { bg: 'bg-orange-100', text: 'text-orange-800' };
+                return { bg: 'bg-blue-100', text: 'text-blue-800' };
+              }
+              if (tipo === 'seguimiento') return { bg: 'bg-green-100', text: 'text-green-800' };
+              return { bg: 'bg-gray-100', text: 'text-gray-800' };
+            };
+
+            // Format subtipo display name
+            const formatSubtipo = (subtipo) => {
+              if (subtipo === 'relacionTrabos') return 'Relación de Trabajos';
+              if (subtipo === 'autorizacionDocente') return 'Autorización Docente';
+              if (subtipo === 'autorizacionEstudiante') return 'Autorización Estudiante';
+              return subtipo;
+            };
+
+            const chipColor = getChipColor(recurso.tipo, recurso.subtipo);
+
+            return (
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow flex flex-col">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <span class={`text-xs font-semibold px-2 py-1 rounded-full ${chipColor.bg} ${chipColor.text} capitalize whitespace-nowrap`}>
+                  {recurso.tipo}
+                  {recurso.subtipo && <span> - {formatSubtipo(recurso.subtipo)}</span>}
+                </span>
+              </div>
+
               <div class="flex-1">
                 {/* Información del estudiante */}
                 <div class="mb-4">
@@ -185,7 +216,8 @@ const recursosConDetalles = await Promise.all(
                 Verificar
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )
     }
