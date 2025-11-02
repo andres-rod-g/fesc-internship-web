@@ -49,15 +49,19 @@ export async function POST(context) {
     }
 
     const db = await connectDB();
-    const recursosCollection = db.collection("recursos-practicas");
+    const recursosCollection = db.collection("recursos");
 
     const nuevoRecurso = {
       procesoPracticasId: new ObjectId(body.procesoPracticasId),
       tipo: body.tipo, // 'evaluacion', 'seguimiento', 'autoevaluacion', 'arl', 'certificado', 'atlas', 'anexo'
+      subtipo: body.subtipo || null,
+      titulo: body.titulo || "",
       url: body.url || "",
       nota: body.nota || null,
       notasAdicionales: body.notasAdicionales || "",
-      esVerificable: body.esVerificable || false,
+      usuarioId: body.usuarioId || null,
+      seguimientoId: body.seguimientoId || null,
+      verificacionRequerida: body.verificacionRequerida !== undefined ? body.verificacionRequerida : false,
       verificado: body.verificado || false,
       createdAt: new Date(),
       updatedAt: new Date()
