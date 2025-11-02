@@ -26,48 +26,106 @@ if (!["admin", "director_practicas"].includes(user.role)) {
 
 const db = await connectDB();
 
-// Get all resources that require verification and are not yet verified (with URL)
-const recursosNoVerificados = await db
+// Get all resources that require verification and are not yet verified (with URL) using aggregation
+const query = {
+  verificacionRequerida: true,
+  verificado: { $ne: true },
+  $and: [
+    { url: { $exists: true } },
+    { url: { $ne: null } },
+    { url: { $ne: "" } },
+    { url: { $regex: /\S/ } }
+  ]
+};
+
+const recursosConDetalles = await db
   .collection("recursos")
-  .find({
-    verificacionRequerida: true,
-    verificado: { $ne: true },
-    $and: [
-      { url: { $exists: true } },
-      { url: { $ne: null } },
-      { url: { $ne: "" } },
-      { url: { $regex: /\S/ } }  // Must contain at least one non-whitespace character
-    ]
-  })
-  .sort({ createdAt: -1 })
-  .toArray();
-
-// Populate with student and user details
-const recursosConDetalles = await Promise.all(
-  recursosNoVerificados.map(async (recurso) => {
-    let usuario = null;
-    let estudiante = null;
-
-    // Get user/student details
-    if (recurso.usuarioId) {
-      usuario = await db
-        .collection("users")
-        .findOne({ _id: recurso.usuarioId });
-
-      if (!usuario) {
-        estudiante = await db
-          .collection("estudiantes")
-          .findOne({ _id: recurso.usuarioId });
+  .aggregate([
+    { $match: query },
+    { $sort: { createdAt: -1 } },
+    // Lookup users
+    {
+      $lookup: {
+        from: "users",
+        localField: "usuarioId",
+        foreignField: "_id",
+        as: "usuarioData"
+      }
+    },
+    // Lookup estudiantes (fallback if no user found)
+    {
+      $lookup: {
+        from: "estudiantes",
+        localField: "usuarioId",
+        foreignField: "_id",
+        as: "estudianteData"
+      }
+    },
+    // Lookup proceso-practicas
+    {
+      $lookup: {
+        from: "proceso-practicas",
+        localField: "procesoPracticasId",
+        foreignField: "_id",
+        as: "procesoData"
+      }
+    },
+    // Add fields for easier processing
+    {
+      $addFields: {
+        usuario: {
+          $cond: [
+            { $gt: [{ $size: "$usuarioData" }, 0] },
+            { $arrayElemAt: ["$usuarioData", 0] },
+            { $arrayElemAt: ["$estudianteData", 0] }
+          ]
+        },
+        proceso: { $arrayElemAt: ["$procesoData", 0] }
+      }
+    },
+    // Lookup grupos via proceso.grupoId
+    {
+      $lookup: {
+        from: "grupos",
+        localField: "proceso.grupoId",
+        foreignField: "_id",
+        as: "grupoData"
+      }
+    },
+    // Lookup practicantes by email
+    {
+      $lookup: {
+        from: "practicantes",
+        let: { email: { $ifNull: ["$usuario.correo_institucional", "$usuario.email"] } },
+        pipeline: [
+          { $match: { $expr: { $eq: ["$correo_institucional", "$$email"] } } }
+        ],
+        as: "practicanteData"
+      }
+    },
+    // Final projection
+    {
+      $project: {
+        _id: { $toString: "$_id" },
+        procesoPracticasId: 1,
+        usuarioId: 1,
+        tipo: 1,
+        subtipo: 1,
+        url: 1,
+        titulo: 1,
+        nota: 1,
+        notasAdicionales: 1,
+        verificacionRequerida: 1,
+        verificado: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        usuario: 1,
+        grupo: { $arrayElemAt: ["$grupoData", 0] },
+        practicanteId: { $toString: { $arrayElemAt: ["$practicanteData._id", 0] } }
       }
     }
-
-    return {
-      ...recurso,
-      _id: recurso._id.toString(),
-      usuario: usuario || estudiante,
-    };
-  })
-);
+  ])
+  .toArray();
 ---
 
 <AdminLayout title="Validación de Firmas | FESC">
