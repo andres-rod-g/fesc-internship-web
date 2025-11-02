@@ -24,34 +24,41 @@ export async function GET({ request, cookies }) {
 
     const db = await connectDB();
 
-    // Find all resources that are not verified
-    const recursosNoVerificados = await db.collection('recursos_practicas')
-      .find({ verificado: { $ne: true } })
+    // Find all resources that require verification and are not yet verified (with URL)
+    const recursosNoVerificados = await db.collection('recursos')
+      .find({
+        verificacionRequerida: true,
+        verificado: { $ne: true },
+        $and: [
+          { url: { $exists: true } },
+          { url: { $ne: null } },
+          { url: { $ne: "" } },
+          { url: { $regex: /\S/ } }  // Must contain at least one non-whitespace character
+        ]
+      })
       .sort({ createdAt: -1 })
       .toArray();
 
-    // Populate with student and entry details
+    // Populate with process and student details
     const recursosConDetalles = await Promise.all(
       recursosNoVerificados.map(async (recurso) => {
-        // Find the entry that references this resource
-        const seguimiento = await db.collection('seguimientos_practicas')
-          .findOne({ 'entradas.recursoId': recurso._id.toString() });
-
-        let entrada = null;
         let estudiante = null;
+        let usuario = null;
 
-        if (seguimiento) {
-          entrada = seguimiento.entradas.find(e => e.recursoId === recurso._id.toString());
-          if (entrada) {
+        // Get user/student details
+        if (recurso.usuarioId) {
+          usuario = await db.collection('users')
+            .findOne({ _id: recurso.usuarioId });
+
+          if (!usuario) {
             estudiante = await db.collection('estudiantes')
-              .findOne({ _id: entrada.estudianteId });
+              .findOne({ _id: recurso.usuarioId });
           }
         }
 
         return {
           ...recurso,
-          entrada,
-          estudiante
+          usuario: usuario || estudiante
         };
       })
     );
