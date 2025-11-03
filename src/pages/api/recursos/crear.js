@@ -41,7 +41,7 @@ export async function POST(context) {
       nuevoRecurso.subtipo = body.subtipo; // autorizacionDocente, autorizacionEstudiante, relacionTrabos
       nuevoRecurso.titulo = body.titulo || "";
       nuevoRecurso.url = body.url || "";
-      nuevoRecurso.verificado = body.verificado || false;
+      nuevoRecurso.estado = body.estado || "pendiente";
       nuevoRecurso.verificacionRequerida = body.verificacionRequerida !== undefined ? body.verificacionRequerida : true;
     } else {
       // Para: seguimiento, arl, anexos, certificado
@@ -49,7 +49,7 @@ export async function POST(context) {
       nuevoRecurso.url = body.url || "";
       nuevoRecurso.nota = body.nota || null;
       nuevoRecurso.notasAdicionales = body.notasAdicionales || "";
-      nuevoRecurso.verificado = body.verificado || false;
+      nuevoRecurso.estado = body.estado || "pendiente";
       nuevoRecurso.verificacionRequerida = body.verificacionRequerida !== undefined ? body.verificacionRequerida : true;
     }
 

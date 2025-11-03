@@ -22,18 +22,25 @@ export function TabsList({ children, className = "" }) {
 }
 
 export function TabsTrigger({ children, value, className = "" }) {
-  const { value: activeValue, onValueChange } = useContext(TabsContext);
+  const context = useContext(TabsContext);
+  const activeValue = context?.value;
+  const onValueChange = context?.onValueChange;
   const isActive = activeValue === value;
 
   return (
     <button
+      type="button"
       role="tab"
       aria-selected={isActive}
-      onClick={() => onValueChange(value)}
-      className={`px-4 py-3 font-medium text-sm whitespace-nowrap border-b-2 transition-colors ${
+      onClick={() => {
+        if (onValueChange) {
+          onValueChange(value);
+        }
+      }}
+      className={`px-4 py-3 font-medium text-sm whitespace-nowrap border-b-2 transition-colors cursor-pointer ${
         isActive
           ? "border-accent text-accent"
-          : "border-transparent text-gray-600 hover:text-gray-800"
+          : "border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300"
       } ${className}`}
     >
       {children}
@@ -42,7 +49,8 @@ export function TabsTrigger({ children, value, className = "" }) {
 }
 
 export function TabsContent({ children, value, className = "" }) {
-  const { value: activeValue } = useContext(TabsContext);
+  const context = useContext(TabsContext);
+  const activeValue = context?.value;
 
   if (activeValue !== value) return null;
 

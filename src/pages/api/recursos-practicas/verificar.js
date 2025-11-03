@@ -23,20 +23,24 @@ export async function POST({ request, cookies }) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 403 });
     }
 
-    const { recursoId } = await request.json();
+    const { recursoId, estado } = await request.json();
 
     if (!recursoId) {
       return new Response(JSON.stringify({ error: 'Recurso ID is required' }), { status: 400 });
     }
 
+    if (!estado || !['pendiente', 'validado', 'rechazado'].includes(estado)) {
+      return new Response(JSON.stringify({ error: 'Estado inválido. Debe ser: pendiente, validado, rechazado' }), { status: 400 });
+    }
+
     const db = await connectDB();
 
-    // Update the resource to mark as verified
+    // Update the resource with new estado
     const result = await db.collection('recursos').updateOne(
       { _id: new ObjectId(recursoId) },
       {
         $set: {
-          verificado: true,
+          estado: estado,
           fechaVerificacion: new Date()
         }
       }
@@ -46,12 +50,12 @@ export async function POST({ request, cookies }) {
       return new Response(JSON.stringify({ error: 'Recurso not found' }), { status: 404 });
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, estado }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (err) {
-    console.error('Error verifying resource:', err);
+    console.error('Error updating resource estado:', err);
     return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500 });
   }
 }

@@ -1,0 +1,52 @@
+---
+import StudentLayout from "../../../layouts/StudentLayout.astro";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user || user.role !== "estudiante") {
+  return Astro.redirect("/login");
+}
+
+const db = await connectDB();
+
+// Obtener recursos del estudiante
+const recursos = await db
+  .collection("recursos")
+  .find({
+    usuarioId: new ObjectId(user.id)
+  })
+  .toArray();
+---
+
+<StudentLayout title="Mis Recursos por Subir | FESC" activeTab="recursos">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">Mis Recursos por Subir</h1>
+      <p class="text-gray-600">
+        Aquí puedes ver y gestionar los recursos que debes subir para tus prácticas
+      </p>
+    </div>
+
+    <!-- Placeholder para recursos -->
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+      <p class="text-blue-800 font-medium">Funcionalidad en desarrollo</p>
+      <p class="text-blue-700 text-sm mt-2">
+        Esta sección te mostrará los recursos que debes subir para completar tu proceso de prácticas
+      </p>
+    </div>
+  </div>
+</StudentLayout>

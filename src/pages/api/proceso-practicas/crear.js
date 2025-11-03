@@ -64,7 +64,7 @@ export async function POST(context) {
       url: "",
       nota: null,
       notasAdicionales: "",
-      verificado: false,
+      estado: "pendiente",
       verificacionRequerida: true,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -79,7 +79,7 @@ export async function POST(context) {
       subtipo: "autorizacionDocente",
       titulo: "",
       url: "",
-      verificado: false,
+      estado: "pendiente",
       verificacionRequerida: true,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -93,7 +93,7 @@ export async function POST(context) {
       subtipo: "autorizacionEstudiante",
       titulo: "",
       url: "",
-      verificado: false,
+      estado: "pendiente",
       verificacionRequerida: true,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -107,7 +107,7 @@ export async function POST(context) {
       subtipo: "relacionTrabos",
       titulo: "",
       url: "",
-      verificado: false,
+      estado: "pendiente",
       verificacionRequerida: true,
       createdAt: new Date(),
       updatedAt: new Date()

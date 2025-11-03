@@ -1,0 +1,127 @@
+---
+import "~/styles/global.css";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { Building, Home, Users, LogOut, User, RefreshCw } from "lucide-react";
+
+interface Props {
+  title: string;
+  activeTab?: "home" | "proceso" | "recursos";
+}
+
+const { title, activeTab = "home" } = Astro.props;
+const currentUrl = Astro.url.pathname;
+
+const isActive = (path: string) => currentUrl === path || currentUrl.startsWith(path + '/');
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    user = null;
+  }
+}
+---
+
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Panel de estudiante FESC para gestión de prácticas" />
+    <link rel="icon" href="/favicon.ico" />
+    <title>{title}</title>
+  </head>
+  <body class="bg-gray-50 text-gray-900 h-screen flex antialiased">
+    <aside class="w-64 bg-white shadow-xl border-r border-gray-200 flex flex-col h-screen fixed">
+      <!-- Logo y Header -->
+      <div class="p-6 border-b border-gray-200 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+            <Building className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-gray-800">FESC</h1>
+            <p class="text-xs text-gray-500">Mi Plataforma</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navegación -->
+      <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+        <a href="/admin/dashboard"
+           class={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
+             isActive('/admin/dashboard') && !isActive('/admin/student')
+               ? 'bg-accent text-white'
+               : 'text-gray-700 hover:bg-gray-100 hover:text-accent'
+           }`}>
+          <Home className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span class="font-medium">Mi Inicio</span>
+        </a>
+
+        <div class="pt-2 pb-2">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Prácticas</p>
+
+          <a href="/admin/student/proceso"
+             class={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
+               isActive('/admin/student/proceso')
+                 ? 'bg-accent text-white'
+                 : 'text-gray-700 hover:bg-gray-100 hover:text-accent'
+             }`}>
+            <Users className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span class="font-medium">Procesos de Prácticas</span>
+          </a>
+
+          <a href="/admin/student/recursos"
+             class={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
+               isActive('/admin/student/recursos')
+                 ? 'bg-accent text-white'
+                 : 'text-gray-700 hover:bg-gray-100 hover:text-accent'
+             }`}>
+            <Users className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span class="font-medium">Mis Recursos</span>
+          </a>
+        </div>
+      </nav>
+
+      <!-- Footer de la sidebar -->
+      <div class="p-4 border-t border-gray-200 flex-shrink-0">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+              <User className="w-4 h-4 text-gray-600" />
+            </div>
+            <span class="text-sm text-gray-600">Estudiante</span>
+          </div>
+          <a href="/login" class="text-sm text-gray-500 hover:text-accent transition-colors flex items-center gap-1">
+            <LogOut className="w-4 h-4" />
+            Salir
+          </a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col ml-64 h-screen overflow-hidden">
+      <!-- Header del contenido -->
+      <header class="bg-white shadow-sm border-b border-gray-200 p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-2xl font-bold text-gray-800">Mi Panel</h2>
+            <p class="text-gray-600 text-sm mt-1">Gestiona tu información de prácticas</p>
+          </div>
+          <div class="flex items-center gap-4">
+            <button class="p-2 text-gray-500 hover:text-accent transition-colors">
+              <RefreshCw className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Contenido principal -->
+      <div class="flex-1 p-6 bg-gray-50 overflow-y-auto">
+        <slot />
+      </div>
+    </main>
+  </body>
+</html>

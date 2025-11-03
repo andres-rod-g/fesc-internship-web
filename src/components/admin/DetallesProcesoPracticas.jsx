@@ -153,7 +153,6 @@ export default function DetallesProcesoPracticas({ procesoPracticasId }) {
                 url: anexo.url || "",
                 nota: anexo.nota || null,
                 notasAdicionales: anexo.notasAdicionales || "",
-                verificado: anexo.verificado || false,
                 verificacionRequerida: false
               })
             });

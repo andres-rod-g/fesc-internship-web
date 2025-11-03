@@ -1,8 +1,10 @@
 ---
 import AdminLayout from "../../layouts/AdminLayout.astro";
+import StudentLayout from "../../layouts/StudentLayout.astro";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "~/env";
 import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
 
 const token = Astro.cookies.get("token")?.value;
 let user = null;
@@ -23,209 +25,547 @@ if (!user) {
 // Obtener estadísticas reales de la base de datos
 const db = await connectDB();
 
-// Total de practicantes
-const totalPracticantes = await db.collection("practicantes").countDocuments();
+let dashboardData = {};
 
-// Total de empresas
-const totalEmpresas = await db.collection("empresas").countDocuments();
+// Si es estudiante, mostrar su información personalizada
+if (user.role === "estudiante") {
+  // Obtener los datos del estudiante
+  const estudiante = await db.collection("users").findOne({ _id: new ObjectId(user.id) });
 
-// Practicantes por estado
-const estadosPracticantes = await db.collection("practicantes").aggregate([
-  {
-    $group: {
-      _id: "$estado",
-      count: { $sum: 1 }
-    }
+  // Obtener su proceso de prácticas
+  const proceso = await db.collection("proceso-practicas").findOne({
+    estudianteId: new ObjectId(user.id)
+  });
+
+  // Obtener su grupo
+  let grupo = null;
+  if (proceso) {
+    grupo = await db.collection("grupos").findOne({ _id: proceso.grupoId });
   }
-]).toArray();
 
-// Crear mapa de estados
-const estadosMap = {};
-estadosPracticantes.forEach(est => {
-  estadosMap[est._id] = est.count;
-});
-
-const pendientes = estadosMap['pendiente'] || 0;
-const revisando = estadosMap['revisando'] || 0;
-const finalizados = estadosMap['finalizado'] || 0;
-const rechazados = estadosMap['rechazado'] || 0;
-
-// Contar prácticas activas (empresas con practicantes asignados)
-const empresasConPracticantes = await db.collection("empresas").aggregate([
-  { $unwind: { path: "$practicantes_asignados", preserveNullAndEmptyArrays: false } },
-  {
-    $match: {
-      "practicantes_asignados.estado_practica": { $in: ["pendiente", "activo"] }
-    }
-  },
-  {
-    $group: {
-      _id: null,
-      count: { $sum: 1 }
-    }
+  // Obtener sus seguimientos
+  let seguimientos = [];
+  if (grupo) {
+    seguimientos = await db.collection("seguimientos-practicas")
+      .find({ grupoId: grupo._id })
+      .toArray();
   }
-]).toArray();
 
-const practicasActivas = empresasConPracticantes.length > 0 ? empresasConPracticantes[0].count : 0;
+  // Contar recursos de seguimiento completados vs pendientes
+  let recursosPendientes = 0;
+  let recursosValidados = 0;
+  let recursosRechazados = 0;
 
-// Obtener actividad reciente (últimos 5 practicantes registrados)
-const actividadReciente = await db.collection("practicantes")
-  .find({})
-  .sort({ _id: -1 })
-  .limit(5)
-  .toArray();
+  if (seguimientos.length > 0) {
+    const recursos = await db.collection("recursos")
+      .find({
+        tipo: "seguimiento",
+        usuarioId: new ObjectId(user.id),
+        grupoId: grupo?._id
+      })
+      .toArray();
+
+    recursos.forEach(r => {
+      if (r.estado === "pendiente") recursosPendientes++;
+      else if (r.estado === "validado") recursosValidados++;
+      else if (r.estado === "rechazado") recursosRechazados++;
+    });
+  }
+
+  dashboardData = {
+    isEstudiante: true,
+    estudiante,
+    proceso,
+    grupo,
+    seguimientos,
+    recursosPendientes,
+    recursosValidados,
+    recursosRechazados
+  };
+} else {
+  // Dashboard para administradores y directores
+  // Total de practicantes
+  const totalPracticantes = await db.collection("practicantes").countDocuments();
+
+  // Total de empresas
+  const totalEmpresas = await db.collection("empresas").countDocuments();
+
+  // Practicantes por estado
+  const estadosPracticantes = await db.collection("practicantes").aggregate([
+    {
+      $group: {
+        _id: "$estado",
+        count: { $sum: 1 }
+      }
+    }
+  ]).toArray();
+
+  // Crear mapa de estados
+  const estadosMap = {};
+  estadosPracticantes.forEach(est => {
+    estadosMap[est._id] = est.count;
+  });
+
+  const pendientes = estadosMap['pendiente'] || 0;
+  const revisando = estadosMap['revisando'] || 0;
+  const finalizados = estadosMap['finalizado'] || 0;
+  const rechazados = estadosMap['rechazado'] || 0;
+
+  // Contar prácticas activas (empresas con practicantes asignados)
+  const empresasConPracticantes = await db.collection("empresas").aggregate([
+    { $unwind: { path: "$practicantes_asignados", preserveNullAndEmptyArrays: false } },
+    {
+      $match: {
+        "practicantes_asignados.estado_practica": { $in: ["pendiente", "activo"] }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        count: { $sum: 1 }
+      }
+    }
+  ]).toArray();
+
+  const practicasActivas = empresasConPracticantes.length > 0 ? empresasConPracticantes[0].count : 0;
+
+  // Obtener actividad reciente (últimos 5 practicantes registrados)
+  const actividadReciente = await db.collection("practicantes")
+    .find({})
+    .sort({ _id: -1 })
+    .limit(5)
+    .toArray();
+
+  dashboardData = {
+    isEstudiante: false,
+    totalPracticantes,
+    totalEmpresas,
+    pendientes,
+    revisando,
+    finalizados,
+    rechazados,
+    practicasActivas,
+    actividadReciente
+  };
+}
 ---
-<AdminLayout title="Panel de Control | FESC">
+{dashboardData.isEstudiante ? (
+  <StudentLayout title="Inicio | FESC" activeTab="home">
   <div class="space-y-6">
-    <!-- Bienvenida -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Bienvenido de vuelta!</h1>
-      <p class="text-gray-600">
-        Aquí tienes un resumen de la actividad reciente en la plataforma FESC.
-      </p>
-    </div>
-
-    <!-- Estadísticas principales -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Total Practicantes</p>
-            <p class="text-3xl font-bold text-gray-800">{totalPracticantes}</p>
-            <p class="text-sm text-gray-500 mt-1">Registrados en total</p>
-          </div>
-          <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
-            </svg>
-          </div>
+    {dashboardData.isEstudiante ? (
+      <>
+        <!-- Dashboard para Estudiantes -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Bienvenido, {dashboardData.estudiante?.nombres}!</h1>
+          <p class="text-gray-600">
+            Aquí puedes ver el estado de tu proceso de prácticas profesionales
+          </p>
         </div>
-      </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Empresas Registradas</p>
-            <p class="text-3xl font-bold text-gray-800">{totalEmpresas}</p>
-            <p class="text-sm text-gray-500 mt-1">Colaboradoras activas</p>
-          </div>
-          <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Prácticas Activas</p>
-            <p class="text-3xl font-bold text-gray-800">{practicasActivas}</p>
-            <p class="text-sm text-yellow-600 mt-1">En progreso</p>
-          </div>
-          <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-600">Pendientes</p>
-            <p class="text-3xl font-bold text-gray-800">{pendientes}</p>
-            <p class="text-sm text-red-600 mt-1">Requieren atención</p>
-          </div>
-          <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-            </svg>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Acciones rápidas -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">Acciones Rápidas</h2>
-        <div class="space-y-3">
-          <a href="/admin/nuevo-practicante" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-              </svg>
-            </div>
-            <div>
-              <p class="font-medium text-gray-800">Nuevo Practicante</p>
-              <p class="text-sm text-gray-600">Registrar nuevo estudiante</p>
-            </div>
-          </a>
-          
-          <a href="/admin/empresas" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-              </svg>
-            </div>
-            <div>
-              <p class="font-medium text-gray-800">Gestionar Empresas</p>
-              <p class="text-sm text-gray-600">Administrar empresas colaboradoras</p>
-            </div>
-          </a>
-          
-          <a href="/admin/practicantes" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-            </div>
-            <div>
-              <p class="font-medium text-gray-800">Ver Reportes</p>
-              <p class="text-sm text-gray-600">Generar informes detallados</p>
-            </div>
-          </a>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">Actividad Reciente</h2>
-        <div class="space-y-4">
-          {actividadReciente.length > 0 ? (
-            actividadReciente.map((practicante) => (
-              <div class="flex items-center gap-3">
-                <div class={`w-2 h-2 rounded-full ${
-                  practicante.estado === 'pendiente' ? 'bg-yellow-500' :
-                  practicante.estado === 'revisando' ? 'bg-blue-500' :
-                  practicante.estado === 'finalizado' ? 'bg-green-500' :
-                  'bg-red-500'
-                }`}></div>
-                <div class="flex-1">
-                  <p class="text-sm font-medium text-gray-800">
-                    {practicante.nombres} {practicante.apellidos}
-                  </p>
-                  <p class="text-xs text-gray-600">
-                    {practicante.programa} - Estado: {
-                      practicante.estado === 'pendiente' ? 'Pendiente' :
-                      practicante.estado === 'revisando' ? 'En revisión' :
-                      practicante.estado === 'finalizado' ? 'Finalizado' :
-                      'Rechazado'
-                    }
-                  </p>
-                </div>
+        <!-- Información del Grupo -->
+        {dashboardData.grupo ? (
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Tu Grupo de Prácticas</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm text-gray-600">Nombre del Grupo</p>
+                <p class="text-lg font-semibold text-gray-800">{dashboardData.grupo.nombre}</p>
               </div>
-            ))
-          ) : (
-            <div class="text-center py-8 text-gray-500">
-              <p>No hay actividad reciente</p>
-              <p class="text-sm">Los nuevos registros aparecerán aquí</p>
+              <div>
+                <p class="text-sm text-gray-600">Semestre</p>
+                <p class="text-lg font-semibold text-gray-800">{dashboardData.grupo.semestre || 'N/A'}</p>
+              </div>
             </div>
-          )}
+          </div>
+        ) : (
+          <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+            <p class="text-yellow-800 font-medium">Aún no estás asignado a un grupo de prácticas</p>
+          </div>
+        )}
+
+        <!-- Estadísticas de Seguimientos -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Pendientes</p>
+                <p class="text-3xl font-bold text-yellow-600">{dashboardData.recursosPendientes}</p>
+                <p class="text-sm text-gray-500 mt-1">Requieren atención</p>
+              </div>
+              <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Validados</p>
+                <p class="text-3xl font-bold text-green-600">{dashboardData.recursosValidados}</p>
+                <p class="text-sm text-gray-500 mt-1">Completados</p>
+              </div>
+              <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Rechazados</p>
+                <p class="text-3xl font-bold text-red-600">{dashboardData.recursosRechazados}</p>
+                <p class="text-sm text-gray-500 mt-1">Necesitan revisión</p>
+              </div>
+              <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l-2-2m0 0l-2-2m2 2l2-2m-2 2l-2 2m2-2l2 2M9 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+
+        <!-- Seguimientos -->
+        {dashboardData.seguimientos.length > 0 ? (
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Mis Seguimientos</h2>
+            <div class="space-y-3">
+              {dashboardData.seguimientos.map((seg) => (
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <p class="font-medium text-gray-800">{seg.titulo}</p>
+                  {seg.descripcion && <p class="text-sm text-gray-600 mt-1">{seg.descripcion}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
+            <p class="text-blue-800 font-medium">No hay seguimientos disponibles aún</p>
+          </div>
+        )}
+      </>
+    ) : (
+      <>
+        <!-- Dashboard para Administradores -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Bienvenido de vuelta!</h1>
+          <p class="text-gray-600">
+            Aquí tienes un resumen de la actividad reciente en la plataforma FESC.
+          </p>
+        </div>
+
+        <!-- Estadísticas principales -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Total Practicantes</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.totalPracticantes}</p>
+                <p class="text-sm text-gray-500 mt-1">Registrados en total</p>
+              </div>
+              <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Empresas Registradas</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.totalEmpresas}</p>
+                <p class="text-sm text-gray-500 mt-1">Colaboradoras activas</p>
+              </div>
+              <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Prácticas Activas</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.practicasActivas}</p>
+                <p class="text-sm text-yellow-600 mt-1">En progreso</p>
+              </div>
+              <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Pendientes</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.pendientes}</p>
+                <p class="text-sm text-red-600 mt-1">Requieren atención</p>
+              </div>
+              <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Acciones rápidas -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Acciones Rápidas</h2>
+            <div class="space-y-3">
+              <a href="/admin/nuevo-practicante" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-800">Nuevo Practicante</p>
+                  <p class="text-sm text-gray-600">Registrar nuevo estudiante</p>
+                </div>
+              </a>
+
+              <a href="/admin/empresas" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-800">Gestionar Empresas</p>
+                  <p class="text-sm text-gray-600">Administrar empresas colaboradoras</p>
+                </div>
+              </a>
+
+              <a href="/admin/practicantes" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-800">Ver Reportes</p>
+                  <p class="text-sm text-gray-600">Generar informes detallados</p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Actividad Reciente</h2>
+            <div class="space-y-4">
+              {dashboardData.actividadReciente.length > 0 ? (
+                dashboardData.actividadReciente.map((practicante) => (
+                  <div class="flex items-center gap-3">
+                    <div class={`w-2 h-2 rounded-full ${
+                      practicante.estado === 'pendiente' ? 'bg-yellow-500' :
+                      practicante.estado === 'revisando' ? 'bg-blue-500' :
+                      practicante.estado === 'finalizado' ? 'bg-green-500' :
+                      'bg-red-500'
+                    }`}></div>
+                    <div class="flex-1">
+                      <p class="text-sm font-medium text-gray-800">
+                        {practicante.nombres} {practicante.apellidos}
+                      </p>
+                      <p class="text-xs text-gray-600">
+                        {practicante.programa} - Estado: {
+                          practicante.estado === 'pendiente' ? 'Pendiente' :
+                          practicante.estado === 'revisando' ? 'En revisión' :
+                          practicante.estado === 'finalizado' ? 'Finalizado' :
+                          'Rechazado'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div class="text-center py-8 text-gray-500">
+                  <p>No hay actividad reciente</p>
+                  <p class="text-sm">Los nuevos registros aparecerán aquí</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    )}
   </div>
-</AdminLayout>
+  </StudentLayout>
+) : (
+  <AdminLayout title="Panel de Control | FESC">
+  <div class="space-y-6">
+    {dashboardData.isEstudiante ? (
+      <>
+      </>
+    ) : (
+      <>
+        <!-- Dashboard para Administradores -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Bienvenido de vuelta!</h1>
+          <p class="text-gray-600">
+            Aquí tienes un resumen de la actividad reciente en la plataforma FESC.
+          </p>
+        </div>
+
+        <!-- Estadísticas principales -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Total Practicantes</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.totalPracticantes}</p>
+                <p class="text-sm text-gray-500 mt-1">Registrados en total</p>
+              </div>
+              <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Empresas Registradas</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.totalEmpresas}</p>
+                <p class="text-sm text-gray-500 mt-1">Colaboradoras activas</p>
+              </div>
+              <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Prácticas Activas</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.practicasActivas}</p>
+                <p class="text-sm text-yellow-600 mt-1">En progreso</p>
+              </div>
+              <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Pendientes</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.pendientes}</p>
+                <p class="text-sm text-red-600 mt-1">Requieren atención</p>
+              </div>
+              <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Acciones rápidas -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Acciones Rápidas</h2>
+            <div class="space-y-3">
+              <a href="/admin/nuevo-practicante" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div class="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-800">Nuevo Practicante</p>
+                  <p class="text-sm text-gray-600">Registrar nuevo estudiante</p>
+                </div>
+              </a>
+
+              <a href="/admin/empresas" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-800">Gestionar Empresas</p>
+                  <p class="text-sm text-gray-600">Administrar empresas colaboradoras</p>
+                </div>
+              </a>
+
+              <a href="/admin/practicantes" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p class="font-medium text-gray-800">Ver Reportes</p>
+                  <p class="text-sm text-gray-600">Generar informes detallados</p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Actividad Reciente</h2>
+            <div class="space-y-4">
+              {dashboardData.actividadReciente.length > 0 ? (
+                dashboardData.actividadReciente.map((practicante) => (
+                  <div class="flex items-center gap-3">
+                    <div class={`w-2 h-2 rounded-full ${
+                      practicante.estado === 'pendiente' ? 'bg-yellow-500' :
+                      practicante.estado === 'revisando' ? 'bg-blue-500' :
+                      practicante.estado === 'finalizado' ? 'bg-green-500' :
+                      'bg-red-500'
+                    }`}></div>
+                    <div class="flex-1">
+                      <p class="text-sm font-medium text-gray-800">
+                        {practicante.nombres} {practicante.apellidos}
+                      </p>
+                      <p class="text-xs text-gray-600">
+                        {practicante.programa} - Estado: {
+                          practicante.estado === 'pendiente' ? 'Pendiente' :
+                          practicante.estado === 'revisando' ? 'En revisión' :
+                          practicante.estado === 'finalizado' ? 'Finalizado' :
+                          'Rechazado'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div class="text-center py-8 text-gray-500">
+                  <p>No hay actividad reciente</p>
+                  <p class="text-sm">Los nuevos registros aparecerán aquí</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+  </AdminLayout>
+)}

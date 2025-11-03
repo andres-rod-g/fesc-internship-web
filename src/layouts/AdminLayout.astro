@@ -53,7 +53,7 @@ if (user) {
 
       badges.validacion_firmas = await db.collection("recursos").countDocuments({
         verificacionRequerida: true,
-        verificado: { $ne: true },
+        estado: "pendiente",
         $and: [
           { url: { $exists: true } },
           { url: { $ne: null } },
@@ -70,7 +70,7 @@ if (user) {
 
       badges.validacion_firmas = await db.collection("recursos").countDocuments({
         verificacionRequerida: true,
-        verificado: { $ne: true },
+        estado: "pendiente",
         $and: [
           { url: { $exists: true } },
           { url: { $ne: null } },
@@ -83,7 +83,7 @@ if (user) {
     if (user.role === "director_practicas") {
       badges.validacion_firmas = await db.collection("recursos").countDocuments({
         verificacionRequerida: true,
-        verificado: { $ne: true },
+        estado: "pendiente",
         $and: [
           { url: { $exists: true } },
           { url: { $ne: null } },

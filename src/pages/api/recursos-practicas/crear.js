@@ -62,7 +62,7 @@ export async function POST(context) {
       usuarioId: body.usuarioId || null,
       seguimientoId: body.seguimientoId || null,
       verificacionRequerida: body.verificacionRequerida !== undefined ? body.verificacionRequerida : false,
-      verificado: body.verificado || false,
+      estado: body.estado || "pendiente",
       createdAt: new Date(),
       updatedAt: new Date()
     };

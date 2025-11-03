@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Save, X, Loader2, ExternalLink } from "lucide-react";
+import { getEstadoColors, ESTADOS_RECURSO_LABELS } from "~/utils/estadosRecursos";
 
 export default function SeguimientoDetalle({
   seguimiento,
@@ -135,7 +136,9 @@ export default function SeguimientoDetalle({
     if (!recurso.nota) {
       falta.push("calificación");
     }
-    if (!recurso.verificado) {
+    // Check estado field for signature validation status (use 'pendiente' as default if not set)
+    const estado = recurso.estado || "pendiente";
+    if (estado !== "validado") {
       falta.push("validación de firmas");
     }
 
@@ -490,12 +493,19 @@ export default function SeguimientoDetalle({
                     />
                   </div>
 
-                  {/* Verificado */}
+                  {/* Estado de Validación */}
                   <div>
                     <p className="text-xs font-medium text-gray-600 mb-1">Validación de Firmas</p>
-                    <p className={`text-sm font-medium ${recursos[modalRecurso.recursoId]?.verificado ? "text-green-700" : "text-yellow-700"}`}>
-                      {recursos[modalRecurso.recursoId]?.verificado ? "✓ Validado" : "⚠ Pendiente de validación"}
-                    </p>
+                    {(() => {
+                      const recurso = recursos[modalRecurso.recursoId];
+                      const estado = recurso?.estado || "pendiente";
+                      const colores = getEstadoColors(estado);
+                      return (
+                        <div className={`px-3 py-2 rounded-lg text-sm font-medium inline-block ${colores.bg} ${colores.text}`}>
+                          {ESTADOS_RECURSO_LABELS[estado]}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </>
               )}

@@ -1,0 +1,87 @@
+---
+import StudentLayout from "../../../../layouts/StudentLayout.astro";
+import DetallesProcesoPracticasEstudiante from "../../../../components/student/DetallesProcesoPracticasEstudiante.jsx";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
+import { connectDB } from "~/utils/db.js";
+import { ObjectId } from "mongodb";
+
+const token = Astro.cookies.get("token")?.value;
+let user = null;
+if (token) {
+  try {
+    user = jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    console.error("Error al verificar el token:", err);
+    user = null;
+  }
+}
+
+if (!user || user.role !== "estudiante") {
+  return Astro.redirect("/login");
+}
+
+const { id } = Astro.params;
+let procesoPracticas = null;
+let error = null;
+let grupo = null;
+
+try {
+  const db = await connectDB();
+
+  // Obtener el proceso de prácticas
+  if (!ObjectId.isValid(id)) {
+    error = "ID inválido";
+  } else {
+    procesoPracticas = await db.collection("proceso-practicas").findOne({
+      _id: new ObjectId(id),
+      estudianteId: new ObjectId(user.id)
+    });
+
+    if (!procesoPracticas) {
+      error = "Proceso de prácticas no encontrado o no tienes acceso a él";
+    } else {
+      // Obtener información del grupo
+      grupo = await db.collection("grupos").findOne({
+        _id: procesoPracticas.grupoId
+      });
+    }
+  }
+} catch (err) {
+  console.error("Error al obtener datos:", err);
+  error = "Error al cargar el proceso de prácticas";
+}
+---
+
+<StudentLayout title="Detalles del Proceso de Prácticas | FESC" activeTab="proceso">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <a href="/admin/student/proceso" class="text-accent hover:text-accent/80 font-medium text-sm mb-2 flex items-center gap-1">
+            ← Volver a mis procesos
+          </a>
+          <h1 class="text-3xl font-bold text-gray-800 mt-2">
+            {grupo?.nombre || "Proceso de Prácticas"}
+          </h1>
+          <p class="text-gray-600 mt-1">
+            Semestre: {grupo?.semestre || "N/A"}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {error ? (
+      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+        <p class="text-red-800 font-medium">{error}</p>
+      </div>
+    ) : procesoPracticas ? (
+      <DetallesProcesoPracticasEstudiante client:load procesoPracticasId={procesoPracticas._id.toString()} />
+    ) : (
+      <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
+        <p class="text-gray-600">Cargando información...</p>
+      </div>
+    )}
+  </div>
+</StudentLayout>

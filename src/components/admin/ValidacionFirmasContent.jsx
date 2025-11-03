@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { Search, Filter, ArrowUpDown, CheckCircle, ExternalLink } from "lucide-react";
+import { Search, Filter, ArrowUpDown, CheckCircle, ExternalLink, X } from "lucide-react";
+import { getEstadoColors, ESTADOS_RECURSO_LABELS } from "../../utils/estadosRecursos";
 
 export default function ValidacionFirmasContent({ initialRecursos = [] }) {
   const [recursos, setRecursos] = useState(initialRecursos);
@@ -97,20 +98,30 @@ export default function ValidacionFirmasContent({ initialRecursos = [] }) {
     return subtipo;
   };
 
-  const handleVerificar = async (recursoId) => {
-    if (confirm('¿Estás seguro de que deseas verificar este recurso?')) {
+  const handleCambiarEstado = async (recursoId, nuevoEstado) => {
+    const mensajes = {
+      validado: '¿Estás seguro de que deseas validar este recurso?',
+      rechazado: '¿Estás seguro de que deseas rechazar este recurso?',
+      pendiente: '¿Estás seguro de que deseas marcar este recurso como pendiente?'
+    };
+
+    if (confirm(mensajes[nuevoEstado] || '¿Estás seguro?')) {
       try {
         const res = await fetch('/api/recursos-practicas/verificar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ recursoId })
+          body: JSON.stringify({ recursoId, estado: nuevoEstado })
         });
 
+        const data = await res.json();
+
         if (res.ok) {
-          // Remove from list
-          setRecursos(recursos.filter(r => r._id !== recursoId));
+          // Actualizar estado en la UI sin remover del listado
+          setRecursos(recursos.map(r =>
+            r._id === recursoId ? { ...r, estado: nuevoEstado } : r
+          ));
         } else {
-          alert('Error al verificar el recurso');
+          alert(data.error || 'Error al cambiar el estado del recurso');
         }
       } catch (err) {
         console.error('Error:', err);
@@ -333,14 +344,41 @@ export default function ValidacionFirmasContent({ initialRecursos = [] }) {
                   </div>
                 </div>
 
-                {/* Acción de verificación */}
-                <button
-                  onClick={() => handleVerificar(recurso._id)}
-                  class="mt-4 w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2 text-sm"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Verificar
-                </button>
+                {/* Estado del recurso */}
+                <div class="mt-4 p-3 border-t border-gray-200">
+                  <p class="text-xs text-gray-600 font-medium mb-2">Estado actual:</p>
+                  {(() => {
+                    const colores = getEstadoColors(recurso.estado || 'pendiente');
+                    return (
+                      <div class={`px-3 py-1 rounded-full text-xs font-semibold ${colores.bg} ${colores.text} text-center mb-3`}>
+                        {ESTADOS_RECURSO_LABELS[recurso.estado || 'pendiente']}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Botones de cambio de estado */}
+                  <div class="space-y-2">
+                    {(recurso.estado || 'pendiente') !== 'validado' && (
+                      <button
+                        onClick={() => handleCambiarEstado(recurso._id, 'validado')}
+                        class="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2 text-sm"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Validar
+                      </button>
+                    )}
+
+                    {(recurso.estado || 'pendiente') !== 'rechazado' && (
+                      <button
+                        onClick={() => handleCambiarEstado(recurso._id, 'rechazado')}
+                        class="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2 text-sm"
+                      >
+                        <X className="w-4 h-4" />
+                        Rechazar
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })}

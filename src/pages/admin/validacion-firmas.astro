@@ -26,10 +26,10 @@ if (!["admin", "director_practicas"].includes(user.role)) {
 
 const db = await connectDB();
 
-// Get all resources that require verification and are not yet verified (with URL) using aggregation
+// Get all resources that require verification and are pending validation (with URL) using aggregation
 const query = {
   verificacionRequerida: true,
-  verificado: { $ne: true },
+  estado: "pendiente",
   $and: [
     { url: { $exists: true } },
     { url: { $ne: null } },
@@ -116,7 +116,7 @@ const recursosConDetalles = await db
         nota: 1,
         notasAdicionales: 1,
         verificacionRequerida: 1,
-        verificado: 1,
+        estado: 1,
         createdAt: 1,
         updatedAt: 1,
         usuario: 1,

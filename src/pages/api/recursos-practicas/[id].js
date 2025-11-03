@@ -23,14 +23,6 @@ export async function PUT(context) {
       );
     }
 
-    // Solo admin y director pueden actualizar recursos
-    if (user.role !== "admin" && user.role !== "director") {
-      return new Response(
-        JSON.stringify({ error: "No tienes permiso" }),
-        { status: 403, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
     const { id } = context.params;
 
     if (!ObjectId.isValid(id)) {
@@ -45,6 +37,27 @@ export async function PUT(context) {
     const recursosCollection = db.collection("recursos");
     const seguimientosCollection = db.collection("seguimientos-practicas");
 
+    // Obtener recurso actual para verificar permisos y si URL cambió
+    const recursoActual = await recursosCollection.findOne({ _id: new ObjectId(id) });
+
+    if (!recursoActual) {
+      return new Response(
+        JSON.stringify({ error: "Recurso no encontrado" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validar permisos: solo admin, director, profesor o el dueño del recurso pueden actualizarlo
+    const isAdmin = user.role === "admin" || user.role === "director" || user.role === "profesor";
+    const isOwner = recursoActual.usuarioId && recursoActual.usuarioId.toString() === user.id;
+
+    if (!isAdmin && !isOwner) {
+      return new Response(
+        JSON.stringify({ error: "No tienes permiso para actualizar este recurso" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     // Construir objeto de actualización solo con campos permitidos
     const updateObj = {
       url: body.url || "",
@@ -52,6 +65,11 @@ export async function PUT(context) {
       notasAdicionales: body.notasAdicionales || "",
       updatedAt: new Date()
     };
+
+    // Si la URL cambió, resetear estado a "pendiente"
+    if (body.url && body.url !== recursoActual.url) {
+      updateObj.estado = "pendiente";
+    }
 
     const result = await recursosCollection.updateOne(
       { _id: new ObjectId(id) },

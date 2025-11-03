@@ -42,10 +42,11 @@ export async function GET(context) {
           recursos: recursos.map((r) => ({
             _id: r._id.toString(),
             usuarioId: r.usuarioId?.toString(),
+            titulo: r.titulo || "",
             url: r.url || "",
             nota: r.nota || null,
             notasAdicionales: r.notasAdicionales || "",
-            verificado: r.verificado || false
+            estado: r.estado || "pendiente"
           }))
         };
       })

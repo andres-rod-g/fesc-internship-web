@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { AlertCircle, Loader2, CheckCircle, Clock, Save } from "lucide-react";
 import RecursoSeguimiento from "./RecursoSeguimiento";
+import { getEstadoColors, ESTADOS_RECURSO_LABELS } from "~/utils/estadosRecursos";
 
 export default function SeguimientosProcesoTab({
   procesoPracticasId,
   grupoId,
   estudianteId,
-  estudiantes = []
+  estudiantes = [],
+  isEstudiante = false
 }) {
   const [seguimientos, setSeguimientos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,8 @@ export default function SeguimientosProcesoTab({
               titulo: recurso.titulo || "",
               url: recurso.url || "",
               nota: recurso.nota || null,
-              notasAdicionales: recurso.notasAdicionales || ""
+              notasAdicionales: recurso.notasAdicionales || "",
+              estado: recurso.estado || "pendiente"
             };
           });
         });
@@ -111,6 +114,28 @@ export default function SeguimientosProcesoTab({
     }
   };
 
+  const handleCambiarEstado = async (recursoId, nuevoEstado) => {
+    try {
+      const res = await fetch('/api/recursos-practicas/verificar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recursoId, estado: nuevoEstado })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Error al cambiar estado');
+      }
+
+      alert(`Recurso marcado como ${nuevoEstado}`);
+      // Recargar después de cambiar estado
+      await cargarSeguimientos();
+    } catch (err) {
+      console.error("Error al cambiar estado:", err);
+      alert(`Error: ${err.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -146,17 +171,26 @@ export default function SeguimientosProcesoTab({
         {seguimientos.map((seguimiento) => {
           const recursoKey = seguimiento._id;
           const recursoData = recursosConEstudiante[recursoKey] || {};
+          const estado = recursoData.estado || "pendiente";
+          const coloresEstado = getEstadoColors(estado);
 
           return (
             <div
               key={seguimiento._id}
-              className="p-4 rounded-lg border-2 border-gray-200 bg-white"
+              className={`p-4 rounded-lg border-2 ${coloresEstado.border} bg-white`}
             >
               <div className="mb-6">
-                <h4 className="text-lg font-bold text-gray-800">{seguimiento.titulo}</h4>
-                {seguimiento.descripcion && (
-                  <p className="text-gray-600 text-sm mt-1">{seguimiento.descripcion}</p>
-                )}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <h4 className="text-lg font-bold text-gray-800">{seguimiento.titulo}</h4>
+                    {seguimiento.descripcion && (
+                      <p className="text-gray-600 text-sm mt-1">{seguimiento.descripcion}</p>
+                    )}
+                  </div>
+                  <div className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${coloresEstado.bg} ${coloresEstado.text}`}>
+                    {ESTADOS_RECURSO_LABELS[estado]}
+                  </div>
+                </div>
               </div>
 
               {/* Recurso del estudiante */}
@@ -180,6 +214,31 @@ export default function SeguimientosProcesoTab({
                   <Save className="w-4 h-4" />
                   Guardar
                 </button>
+
+                {/* Botones de estado - Solo para administradores */}
+                {!isEstudiante && (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => handleCambiarEstado(recursoData.recursoId, 'validado')}
+                      className="px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium text-sm"
+                    >
+                      ✓ Validar
+                    </button>
+                    <button
+                      onClick={() => handleCambiarEstado(recursoData.recursoId, 'pendiente')}
+                      className="px-3 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium text-sm"
+                    >
+                      ⟲ Pendiente
+                    </button>
+                    <button
+                      onClick={() => handleCambiarEstado(recursoData.recursoId, 'rechazado')}
+                      className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium text-sm"
+                    >
+                      ✗ Rechazar
+                    </button>
+                  </div>
+                )}
+
                 {recursoData.recursoId && (
                   <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
                     <span>🆔</span>

@@ -24,11 +24,11 @@ export async function GET({ request, cookies }) {
 
     const db = await connectDB();
 
-    // Find all resources that require verification and are not yet verified (with URL)
+    // Find all resources that require verification and are pending (with URL)
     const recursosNoVerificados = await db.collection('recursos')
       .find({
         verificacionRequerida: true,
-        verificado: { $ne: true },
+        estado: "pendiente",
         $and: [
           { url: { $exists: true } },
           { url: { $ne: null } },

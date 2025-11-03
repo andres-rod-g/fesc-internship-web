@@ -30,10 +30,10 @@ export async function GET({ request, cookies }) {
 
     const db = await connectDB();
 
-    // Build query
+    // Build query - filter for resources that are pending validation
     const query = {
       verificacionRequerida: true,
-      verificado: { $ne: true },
+      estado: "pendiente",
       $and: [
         { url: { $exists: true } },
         { url: { $ne: null } },

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Plus, Trash2, Check, X } from "lucide-react";
+import { getEstadoColors, ESTADOS_RECURSO_LABELS } from "~/utils/estadosRecursos";
 
 export default function ListaRecursos({
   recursos = [],
@@ -21,7 +22,7 @@ export default function ListaRecursos({
       url: "",
       nota: null,
       notasAdicionales: "",
-      verificado: false
+      estado: "pendiente"
     };
     const updated = [...recursos_local, newRecurso];
     setRecursos_local(updated);
@@ -57,10 +58,20 @@ export default function ListaRecursos({
     setIsEditing(false);
   };
 
-  const handleVerificar = (id) => {
-    const updated = recursos_local.map((r) =>
-      r.id === id ? { ...r, verificado: !r.verificado } : r
-    );
+  const handleCambiarEstado = (id) => {
+    // Cycle through states: pendiente -> validado -> rechazado -> pendiente
+    const estadoCiclo = {
+      pendiente: "validado",
+      validado: "rechazado",
+      rechazado: "pendiente"
+    };
+    const updated = recursos_local.map((r) => {
+      if (r.id === id) {
+        const nuevoEstado = estadoCiclo[r.estado || "pendiente"] || "validado";
+        return { ...r, estado: nuevoEstado };
+      }
+      return r;
+    });
     setRecursos_local(updated);
     if (onChange) {
       onChange(updated);
@@ -112,22 +123,8 @@ export default function ListaRecursos({
                       <p className="text-sm text-gray-600 mt-1">{recurso.notasAdicionales}</p>
                     )}
                   </div>
-                  <div className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${
-                    recurso.verificado
-                      ? "bg-green-100 text-green-800"
-                      : "bg-gray-200 text-gray-700"
-                  }`}>
-                    {recurso.verificado ? (
-                      <>
-                        <Check className="w-3 h-3 inline mr-1" />
-                        Verificado
-                      </>
-                    ) : (
-                      <>
-                        <X className="w-3 h-3 inline mr-1" />
-                        No verificado
-                      </>
-                    )}
+                  <div className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap ${getEstadoColors(recurso.estado || "pendiente").bg} ${getEstadoColors(recurso.estado || "pendiente").text}`}>
+                    {ESTADOS_RECURSO_LABELS[recurso.estado || "pendiente"]}
                   </div>
                 </div>
               </div>
@@ -234,15 +231,16 @@ export default function ListaRecursos({
               />
             </div>
 
-            {/* Verificado */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={recurso.verificado}
-                onChange={() => handleVerificar(recurso.id)}
-                className="w-4 h-4 rounded border-gray-300"
-              />
-              <label className="text-sm font-medium text-gray-700">Verificado</label>
+            {/* Estado */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Estado de Validación</label>
+              <button
+                onClick={() => handleCambiarEstado(recurso.id)}
+                type="button"
+                className={`px-3 py-2 rounded-lg text-sm font-medium ${getEstadoColors(recurso.estado || "pendiente").bg} ${getEstadoColors(recurso.estado || "pendiente").text} hover:opacity-80`}
+              >
+                {ESTADOS_RECURSO_LABELS[recurso.estado || "pendiente"]} (click para cambiar)
+              </button>
             </div>
           </div>
         ))}

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Check, X } from "lucide-react";
+import { getEstadoColors, ESTADOS_RECURSO_LABELS } from "~/utils/estadosRecursos";
 
 export default function RecursoPracticas({
   recurso = {},
@@ -15,7 +16,7 @@ export default function RecursoPracticas({
     url: recurso.url || "",
     nota: recurso.nota || null,
     notasAdicionales: recurso.notasAdicionales || "",
-    verificado: recurso.verificado || false
+    estado: recurso.estado || "pendiente"
   });
 
   const handleChange = (field, value) => {
@@ -32,14 +33,21 @@ export default function RecursoPracticas({
   };
 
   const handleVerificar = async () => {
-    const newData = { ...formData, verificado: !formData.verificado };
+    // Cycle through states: pendiente -> validado -> rechazado -> pendiente
+    const estadoCiclo = {
+      pendiente: "validado",
+      validado: "rechazado",
+      rechazado: "pendiente"
+    };
+    const nuevoEstado = estadoCiclo[formData.estado] || "validado";
+    const newData = { ...formData, estado: nuevoEstado };
     setFormData(newData);
     // Auto-save immediately
     if (onChange) {
       onChange(newData);
     }
     if (onVerificar) {
-      await onVerificar(tipo, !formData.verificado);
+      await onVerificar(tipo, nuevoEstado);
     }
   };
 
@@ -52,21 +60,9 @@ export default function RecursoPracticas({
             {recurso.esVerificable && (
               <button
                 onClick={handleVerificar}
-                className={`px-3 py-1 rounded text-sm font-medium flex items-center gap-1 ${
-                  formData.verificado
-                    ? "bg-green-100 text-green-800 hover:bg-green-200"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                }`}
+                className={`px-3 py-1 rounded text-sm font-medium flex items-center gap-1 ${getEstadoColors(formData.estado).bg} ${getEstadoColors(formData.estado).text} hover:opacity-80`}
               >
-                {formData.verificado ? (
-                  <>
-                    <Check className="w-4 h-4" /> Verificado
-                  </>
-                ) : (
-                  <>
-                    <X className="w-4 h-4" /> No verificado
-                  </>
-                )}
+                {ESTADOS_RECURSO_LABELS[formData.estado]}
               </button>
             )}
             {esEditable && !soloLectura && (

@@ -112,9 +112,14 @@ export default function TablaEstudiantesGrupo({
       const entrada = seguimiento.entradas?.find((e) => e.estudianteId === estudianteId);
       if (entrada && entrada.recursoId) {
         total++;
-        // Verificar si el recurso tiene URL asignada usando el mapa
+        // Verificar si el recurso está completo: URL, nota y estado validado
         const recurso = recursoMap[entrada.recursoId];
-        if (recurso && recurso.url) {
+        if (
+          recurso &&
+          recurso.url &&
+          recurso.nota !== null &&
+          recurso.estado === "validado"
+        ) {
           exitosos++;
         }
       }

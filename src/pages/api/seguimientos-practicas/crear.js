@@ -42,7 +42,7 @@ export async function POST(context) {
         url: "",
         nota: null,
         notasAdicionales: "",
-        verificado: false,
+        estado: "pendiente",
         verificacionRequerida: true,
         createdAt: new Date(),
         updatedAt: new Date()

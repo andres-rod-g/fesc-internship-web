@@ -76,14 +76,6 @@ export async function PUT(context) {
       );
     }
 
-    // Solo director puede editar
-    if (user.role !== "admin" && user.role !== "director") {
-      return new Response(
-        JSON.stringify({ error: "No tienes permiso" }),
-        { status: 403, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
     const { id } = context.params;
 
     if (!ObjectId.isValid(id)) {
@@ -93,51 +85,86 @@ export async function PUT(context) {
       );
     }
 
-    const body = await context.request.json();
-
     const db = await connectDB();
     const procesoPracticasCollection = db.collection("proceso-practicas");
+
+    // Obtener proceso actual para validar permisos
+    const procesoPracticasActual = await procesoPracticasCollection.findOne({
+      _id: new ObjectId(id)
+    });
+
+    if (!procesoPracticasActual) {
+      return new Response(
+        JSON.stringify({ error: "Proceso de prácticas no encontrado" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validar permisos
+    const isAdmin = user.role === "admin" || user.role === "director" || user.role === "profesor";
+    const isOwner = procesoPracticasActual.estudianteId && procesoPracticasActual.estudianteId.toString() === user.id;
+
+    if (!isAdmin && !isOwner) {
+      return new Response(
+        JSON.stringify({ error: "No tienes permiso para actualizar este proceso" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const body = await context.request.json();
 
     // Excluir _id del body para evitar error de inmutabilidad
     const { _id, ...bodyWithoutId } = body;
 
-    const updateData = {
-      ...bodyWithoutId,
-      updatedAt: new Date()
-    };
+    // Si es estudiante (propietario), solo permite actualizar ciertos campos
+    let updateData;
+    if (!isAdmin && isOwner) {
+      // Estudiante solo puede actualizar: seguimiento, autoevaluacion
+      updateData = {
+        seguimiento: bodyWithoutId.seguimiento,
+        autoevaluacion: bodyWithoutId.autoevaluacion,
+        updatedAt: new Date()
+      };
+    } else {
+      // Admin/Director/Profesor puede actualizar todo
+      updateData = {
+        ...bodyWithoutId,
+        updatedAt: new Date()
+      };
 
-    // Convertir ObjectIds si existen
-    if (body.estudianteId && typeof body.estudianteId === "string") {
-      updateData.estudianteId = new ObjectId(body.estudianteId);
-    }
-    if (body.grupoId && typeof body.grupoId === "string") {
-      updateData.grupoId = new ObjectId(body.grupoId);
-    }
-    if (body.practicanteId && typeof body.practicanteId === "string") {
-      updateData.practicanteId = new ObjectId(body.practicanteId);
-    }
-
-    // Convertir IDs de recursos si vienen como strings
-    const resourceIdFields = [
-      "evaluacionId",
-      "arlId",
-      "certificadoId",
-      "atlasAutorizacionDocenteId",
-      "atlasAutorizacionEstudianteId",
-      "atlasRelacionTrabosId"
-    ];
-
-    resourceIdFields.forEach((field) => {
-      if (body[field] && typeof body[field] === "string") {
-        updateData[field] = new ObjectId(body[field]);
+      // Convertir ObjectIds si existen
+      if (body.estudianteId && typeof body.estudianteId === "string") {
+        updateData.estudianteId = new ObjectId(body.estudianteId);
       }
-    });
+      if (body.grupoId && typeof body.grupoId === "string") {
+        updateData.grupoId = new ObjectId(body.grupoId);
+      }
+      if (body.practicanteId && typeof body.practicanteId === "string") {
+        updateData.practicanteId = new ObjectId(body.practicanteId);
+      }
 
-    // Convertir anexoIds (array de strings a ObjectIds)
-    if (body.anexoIds && Array.isArray(body.anexoIds)) {
-      updateData.anexoIds = body.anexoIds.map((id) =>
-        typeof id === "string" ? new ObjectId(id) : id
-      );
+      // Convertir IDs de recursos si vienen como strings
+      const resourceIdFields = [
+        "evaluacionId",
+        "arlId",
+        "certificadoId",
+        "atlasAutorizacionDocenteId",
+        "atlasAutorizacionEstudianteId",
+        "atlasRelacionTrabosId"
+      ];
+
+      resourceIdFields.forEach((field) => {
+        if (body[field] && typeof body[field] === "string") {
+          updateData[field] = new ObjectId(body[field]);
+        }
+      });
+
+      // Convertir anexoIds (array de strings a ObjectIds)
+      if (body.anexoIds && Array.isArray(body.anexoIds)) {
+        updateData.anexoIds = body.anexoIds.map((id) =>
+          typeof id === "string" ? new ObjectId(id) : id
+        );
+      }
     }
 
     const result = await procesoPracticasCollection.updateOne(
