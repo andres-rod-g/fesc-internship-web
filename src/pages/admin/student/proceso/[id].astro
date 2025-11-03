@@ -54,18 +54,18 @@ try {
 ---
 
 <StudentLayout title="Detalles del Proceso de Prácticas | FESC" activeTab="proceso">
-  <div class="space-y-6">
+  <div class="space-y-4 md:space-y-6">
     <!-- Header -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div class="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
       <div class="flex items-center justify-between">
-        <div>
-          <a href="/admin/student/proceso" class="text-accent hover:text-accent/80 font-medium text-sm mb-2 flex items-center gap-1">
-            ← Volver a mis procesos
+        <div class="min-w-0 flex-1">
+          <a href="/admin/student/proceso" class="text-accent hover:text-accent/80 font-medium text-xs md:text-sm mb-2 flex items-center gap-1 inline-flex">
+            ← Volver
           </a>
-          <h1 class="text-3xl font-bold text-gray-800 mt-2">
+          <h1 class="text-xl md:text-3xl font-bold text-gray-800 mt-2 truncate">
             {grupo?.nombre || "Proceso de Prácticas"}
           </h1>
-          <p class="text-gray-600 mt-1">
+          <p class="text-gray-600 text-xs md:text-sm mt-1">
             Semestre: {grupo?.semestre || "N/A"}
           </p>
         </div>
@@ -73,14 +73,14 @@ try {
     </div>
 
     {error ? (
-      <div class="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-        <p class="text-red-800 font-medium">{error}</p>
+      <div class="bg-red-50 border border-red-200 rounded-lg md:rounded-xl p-4 md:p-6 text-center">
+        <p class="text-red-800 font-medium text-sm md:text-base">{error}</p>
       </div>
     ) : procesoPracticas ? (
       <DetallesProcesoPracticasEstudiante client:load procesoPracticasId={procesoPracticas._id.toString()} />
     ) : (
-      <div class="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center">
-        <p class="text-gray-600">Cargando información...</p>
+      <div class="bg-gray-50 border border-gray-200 rounded-lg md:rounded-xl p-4 md:p-6 text-center">
+        <p class="text-gray-600 text-sm md:text-base">Cargando información...</p>
       </div>
     )}
   </div>

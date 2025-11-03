@@ -1,5 +1,7 @@
 import { connectDB } from "~/utils/db.js";
 import { ObjectId } from "mongodb";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "~/env";
 
 export async function GET(context) {
   try {
@@ -31,9 +33,9 @@ export async function GET(context) {
         recurso: {
           ...recurso,
           _id: recurso._id.toString(),
-          procesoPracticasId: recurso.procesoPracticasId.toString(),
-          usuarioId: recurso.usuarioId.toString(),
-          grupoId: recurso.grupoId.toString()
+          procesoPracticasId: recurso.procesoPracticasId?.toString() || null,
+          usuarioId: recurso.usuarioId?.toString() || null,
+          grupoId: recurso.grupoId?.toString() || null
         }
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
@@ -49,6 +51,24 @@ export async function GET(context) {
 
 export async function PUT(context) {
   try {
+    const token = context.cookies.get("token")?.value;
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "No autorizado" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    let user;
+    try {
+      user = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      return new Response(
+        JSON.stringify({ error: "Token inválido" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const { id } = context.params;
 
     if (!ObjectId.isValid(id)) {
@@ -62,6 +82,29 @@ export async function PUT(context) {
 
     const db = await connectDB();
     const recursosCollection = db.collection("recursos");
+
+    // Obtener recurso actual para validar permisos
+    const recursoActual = await recursosCollection.findOne({
+      _id: new ObjectId(id)
+    });
+
+    if (!recursoActual) {
+      return new Response(
+        JSON.stringify({ error: "Recurso no encontrado" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validar permisos
+    const isAdmin = user.role === "admin" || user.role === "director" || user.role === "profesor";
+    const isOwner = recursoActual.usuarioId && recursoActual.usuarioId.toString() === user.id;
+
+    if (!isAdmin && !isOwner) {
+      return new Response(
+        JSON.stringify({ error: "No tienes permiso para actualizar este recurso" }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
 
     const { _id, ...bodyWithoutId } = body;
 

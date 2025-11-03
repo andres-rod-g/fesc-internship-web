@@ -1,0 +1,74 @@
+/* Responsive Design Styles */
+
+/* Mobile Menu Animation */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Prevent body scroll when sidebar is open */
+  body.sidebar-open {
+    overflow: hidden;
+  }
+}
+
+/* Ensure proper flex layout on mobile */
+@media (max-width: 768px) {
+  .sidebar-container {
+    position: relative;
+  }
+
+  /* Improve touch targets on mobile */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better spacing on mobile */
+  .space-y-2 > * + * {
+    margin-top: 0.5rem;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .text-lg {
+    font-size: 1.025rem;
+  }
+}
+
+/* Large screens */
+@media (min-width: 1025px) {
+  /* Body overflow is now handled by flex layout in main content area */
+}
+
+/* Ensure main takes full available space */
+main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Responsive grid layouts */
+.grid-responsive {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+/* Mobile-first typography */
+@media (max-width: 640px) {
+  h1, h2, h3, h4, h5, h6 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Improve readability on mobile */
+@media (max-width: 768px) {
+  .p-6 {
+    padding: 1rem;
+  }
+
+  .space-y-6 > * + * {
+    margin-top: 1rem;
+  }
+}

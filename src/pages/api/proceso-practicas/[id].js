@@ -119,12 +119,19 @@ export async function PUT(context) {
     // Si es estudiante (propietario), solo permite actualizar ciertos campos
     let updateData;
     if (!isAdmin && isOwner) {
-      // Estudiante solo puede actualizar: seguimiento, autoevaluacion
+      // Estudiante solo puede actualizar: seguimiento, autoevaluacion, anexoIds
       updateData = {
         seguimiento: bodyWithoutId.seguimiento,
         autoevaluacion: bodyWithoutId.autoevaluacion,
         updatedAt: new Date()
       };
+
+      // Convertir anexoIds si existen
+      if (bodyWithoutId.anexoIds && Array.isArray(bodyWithoutId.anexoIds)) {
+        updateData.anexoIds = bodyWithoutId.anexoIds.map((id) =>
+          typeof id === "string" ? new ObjectId(id) : id
+        );
+      }
     } else {
       // Admin/Director/Profesor puede actualizar todo
       updateData = {
