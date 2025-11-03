@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Users, Loader2, AlertCircle, User, Mail, Calendar, Search, Filter, Trash2, Edit2 } from "lucide-react";
+import { Users, Loader2, AlertCircle, User, Mail, Calendar, Search, Filter, Trash2, Edit2, ChevronLeft, ChevronRight } from "lucide-react";
 import ModalEditarUsuario from "./ModalEditarUsuario";
 
 export default function ListaUsuarios({ refresh }) {
@@ -11,6 +11,8 @@ export default function ListaUsuarios({ refresh }) {
   const [searchLoading, setSearchLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedUsuario, setSelectedUsuario] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const debounceTimer = useRef(null);
 
   const buscarUsuarios = async (term, rol) => {
@@ -66,6 +68,9 @@ export default function ListaUsuarios({ refresh }) {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
+
+    // Reset to page 1 when filters change
+    setCurrentPage(1);
 
     debounceTimer.current = setTimeout(() => {
       buscarUsuarios(searchTerm, rolFiltro);
@@ -127,6 +132,17 @@ export default function ListaUsuarios({ refresh }) {
   const handleModalSave = async () => {
     // Refresh the list after saving
     await buscarUsuarios(searchTerm, rolFiltro);
+  };
+
+  // Calculate pagination
+  const totalPages = Math.ceil(usuarios.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const usuariosActuales = usuarios.slice(startIndex, endIndex);
+
+  const goToPage = (page) => {
+    const pageNum = Math.max(1, Math.min(page, totalPages));
+    setCurrentPage(pageNum);
   };
 
   const handleDeleteUsuario = async (usuarioId, username) => {
@@ -234,7 +250,7 @@ export default function ListaUsuarios({ refresh }) {
               </tr>
             </thead>
             <tbody>
-              {usuarios.map((usuario) => (
+              {usuariosActuales.map((usuario) => (
                 <tr key={usuario._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-3">
@@ -296,6 +312,53 @@ export default function ListaUsuarios({ refresh }) {
               ))}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+              <div className="text-sm text-gray-600">
+                Mostrando <span className="font-medium">{startIndex + 1}</span> a{" "}
+                <span className="font-medium">{Math.min(endIndex, usuarios.length)}</span> de{" "}
+                <span className="font-medium">{usuarios.length}</span> usuarios
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Página anterior"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => goToPage(page)}
+                      className={`min-w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                        currentPage === page
+                          ? "bg-accent text-white"
+                          : "border border-gray-200 text-gray-700 hover:bg-gray-50"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Siguiente página"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
