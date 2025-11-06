@@ -27,8 +27,97 @@ const db = await connectDB();
 
 let dashboardData = {};
 
-// Si es estudiante, mostrar su información personalizada
-if (user.role === "estudiante") {
+// Si es docente (profesor), mostrar información de sus grupos
+if (user.role === "profesor") {
+  try {
+    // Obtener los grupos del docente (buscando su ID en el array de docentes)
+    const grupos = await db.collection("grupos").find({
+      docentes: new ObjectId(user.id)
+    }).toArray();
+
+    // Contar estudiantes totales
+    let totalEstudiantes = 0;
+    let procesosEnProgreso = 0;
+
+    for (const grupo of grupos) {
+      if (grupo.estudiantes && Array.isArray(grupo.estudiantes)) {
+        totalEstudiantes += grupo.estudiantes.length;
+      }
+
+      // Contar procesos en progreso para este grupo
+      const procesosGrupo = await db.collection("proceso-practicas").find({
+        grupoId: grupo._id
+      }).toArray();
+      procesosEnProgreso += procesosGrupo.length;
+    }
+
+    dashboardData = {
+      isEstudiante: false,
+      isProfesor: true,
+      grupos: grupos.map(g => ({
+        _id: g._id.toString(),
+        nombre: g.nombre,
+        semestre: g.semestre,
+        estudiantes_count: g.estudiantes?.length || 0
+      })),
+      totalEstudiantes,
+      procesosEnProgreso
+    };
+  } catch (error) {
+    console.error("Error al obtener datos del profesor:", error);
+    dashboardData = {
+      isEstudiante: false,
+      isProfesor: true,
+      grupos: [],
+      totalEstudiantes: 0,
+      procesosEnProgreso: 0,
+      error: true
+    };
+  }
+} else if (user.role === "registro_control") {
+  try {
+    // Obtener estadísticas de validación de pagos
+    const practicantesPagoPendiente = await db.collection("practicantes").countDocuments({
+      estado_preinscripcion: "pago_pendiente",
+      "validacion_pago.estado": "pendiente"
+    });
+
+    const practicantesConPagoValidado = await db.collection("practicantes").countDocuments({
+      estado_preinscripcion: "pago_validado",
+      "validacion_pago.estado": "aprobado"
+    });
+
+    const practicantesRechazados = await db.collection("practicantes").countDocuments({
+      "validacion_pago.estado": "rechazado"
+    });
+
+    const actividadReciente = await db.collection("practicantes")
+      .find({ estado_preinscripcion: { $in: ["pago_pendiente", "pago_validado"] } })
+      .sort({ _id: -1 })
+      .limit(5)
+      .toArray();
+
+    dashboardData = {
+      isEstudiante: false,
+      isRegistroControl: true,
+      practicantesPagoPendiente,
+      practicantesConPagoValidado,
+      practicantesRechazados,
+      actividadReciente
+    };
+  } catch (error) {
+    console.error("Error al obtener datos de registro y control:", error);
+    dashboardData = {
+      isEstudiante: false,
+      isRegistroControl: true,
+      practicantesPagoPendiente: 0,
+      practicantesConPagoValidado: 0,
+      practicantesRechazados: 0,
+      actividadReciente: [],
+      error: true
+    };
+  }
+} else if (user.role === "estudiante") {
   // Obtener los datos del estudiante
   const estudiante = await db.collection("users").findOne({ _id: new ObjectId(user.id) });
 
@@ -409,8 +498,185 @@ if (user.role === "estudiante") {
 ) : (
   <AdminLayout title="Panel de Control | FESC">
   <div class="space-y-6">
-    {dashboardData.isEstudiante ? (
+    {dashboardData.isProfesor ? (
       <>
+        <!-- Dashboard para Docentes -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Bienvenido, Docente!</h1>
+          <p class="text-gray-600">
+            Gestiona tus grupos de prácticas y supervisa el progreso de tus estudiantes
+          </p>
+        </div>
+
+        <!-- Estadísticas principales -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Mis Grupos</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.grupos?.length || 0}</p>
+                <p class="text-sm text-gray-500 mt-1">Grupos asignados</p>
+              </div>
+              <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Estudiantes Totales</p>
+                <p class="text-3xl font-bold text-gray-800">{dashboardData.totalEstudiantes}</p>
+                <p class="text-sm text-gray-500 mt-1">En mis grupos</p>
+              </div>
+              <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.856-1.487M7 20H2v-2a3 3 0 015.856-1.487M15 9a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Procesos de Prácticas en Progreso</p>
+                <p class="text-3xl font-bold text-blue-600">{dashboardData.procesosEnProgreso}</p>
+                <p class="text-sm text-blue-600 mt-1">Activos</p>
+              </div>
+              <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mis Grupos -->
+        {dashboardData.grupos && dashboardData.grupos.length > 0 ? (
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Mis Grupos de Prácticas</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {dashboardData.grupos.map((grupo) => (
+                <a href={`/admin/grupos/${grupo._id}`} class="p-4 border border-gray-200 rounded-lg hover:border-accent hover:shadow-md transition-all">
+                  <p class="font-semibold text-gray-800">{grupo.nombre}</p>
+                  <div class="mt-3 space-y-1 text-sm text-gray-600">
+                    <p>Semestre: <span class="font-medium">{grupo.semestre || 'N/A'}</span></p>
+                    <p>Estudiantes: <span class="font-medium">{grupo.estudiantes_count}</span></p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+            <p class="text-yellow-800 font-medium">No tienes grupos asignados aún</p>
+          </div>
+        )}
+
+        <a href="/admin/grupos" class="block w-full px-4 py-3 bg-accent text-white rounded-lg hover:bg-red-700 font-medium text-center transition-colors">
+          Ver Todos los Grupos
+        </a>
+      </>
+    ) : dashboardData.isRegistroControl ? (
+      <>
+        <!-- Dashboard para Registro y Control -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h1 class="text-3xl font-bold text-gray-800 mb-2">¡Bienvenido, Registro y Control!</h1>
+          <p class="text-gray-600">
+            Gestiona la validación de pagos y el registro de practicantes
+          </p>
+        </div>
+
+        <!-- Estadísticas principales -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Pagos Pendientes</p>
+                <p class="text-3xl font-bold text-yellow-600">{dashboardData.practicantesPagoPendiente}</p>
+                <p class="text-sm text-yellow-600 mt-1">Requieren validación</p>
+              </div>
+              <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Pagos Validados</p>
+                <p class="text-3xl font-bold text-green-600">{dashboardData.practicantesConPagoValidado}</p>
+                <p class="text-sm text-green-600 mt-1">Aprobados</p>
+              </div>
+              <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-gray-600">Pagos Rechazados</p>
+                <p class="text-3xl font-bold text-red-600">{dashboardData.practicantesRechazados}</p>
+                <p class="text-sm text-red-600 mt-1">No aprobados</p>
+              </div>
+              <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l-2-2m0 0l-2-2m2 2l2-2m-2 2l-2 2M9 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actividad Reciente -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 class="text-xl font-semibold text-gray-800 mb-4">Actividad Reciente</h2>
+          <div class="space-y-4">
+            {dashboardData.actividadReciente && dashboardData.actividadReciente.length > 0 ? (
+              dashboardData.actividadReciente.map((practicante) => (
+                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div class={`w-2 h-2 rounded-full ${
+                    practicante.validacion_pago?.estado === 'pendiente' ? 'bg-yellow-500' :
+                    practicante.validacion_pago?.estado === 'aprobado' ? 'bg-green-500' :
+                    'bg-red-500'
+                  }`}></div>
+                  <div class="flex-1">
+                    <p class="text-sm font-medium text-gray-800">
+                      {practicante.nombres} {practicante.apellidos}
+                    </p>
+                    <p class="text-xs text-gray-600">
+                      Estado: {
+                        practicante.validacion_pago?.estado === 'pendiente' ? 'Pago Pendiente' :
+                        practicante.validacion_pago?.estado === 'aprobado' ? 'Pago Aprobado' :
+                        'Pago Rechazado'
+                      }
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div class="text-center py-8 text-gray-500">
+                <p>No hay actividad reciente</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <a href="/admin/validaciones-pago" class="block w-full px-4 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium text-center transition-colors">
+          Ir a Validar Pagos
+        </a>
       </>
     ) : (
       <>

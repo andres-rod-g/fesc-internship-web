@@ -124,18 +124,16 @@ if (user) {
       
       <!-- Navegación -->
       <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
-        <!-- Dashboard solo para admin -->
-        {user?.role === "admin" && (
-          <a href="/admin/dashboard"
-             class={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
-               isActive('/admin/dashboard')
-                 ? 'bg-accent text-white'
-                 : 'text-gray-700 hover:bg-gray-100 hover:text-accent'
-             }`}>
-            <Home className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            <span class="font-medium">Dashboard</span>
-          </a>
-        )}
+        <!-- Inicio para todos -->
+        <a href="/admin/dashboard"
+           class={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
+             isActive('/admin/dashboard')
+               ? 'bg-accent text-white'
+               : 'text-gray-700 hover:bg-gray-100 hover:text-accent'
+           }`}>
+          <Home className="w-5 h-5 group-hover:scale-110 transition-transform" />
+          <span class="font-medium">Inicio</span>
+        </a>
 
         <!-- Registro y Control: SOLO VE Validar Pagos -->
         {user?.role === "registro_control" && (
@@ -157,8 +155,8 @@ if (user) {
           </a>
         )}
 
-        <!-- Director/Profesor: VE Solicitudes de Practicantes -->
-        {(user?.role === "director" || user?.role === "profesor") && (
+        <!-- Director: VE Solicitudes de Practicantes (Profesor NO) -->
+        {user?.role === "director" && (
           <a href="/admin/solicitudes-practicantes"
              class={`flex items-center justify-between rounded-lg px-3 py-2 transition-all duration-200 group ${
                isActive('/admin/solicitudes-practicantes')
@@ -357,7 +355,7 @@ if (user) {
           </>
         )}
 
-        <!-- Profesor: VE Gestión de Prácticas (sin Usuarios) -->
+        <!-- Profesor: VE Gestión de Prácticas (sin Usuarios y sin Validación de Firmas) -->
         {user?.role === "profesor" && (
           <>
             <div class="pt-2 pb-2">
@@ -371,23 +369,6 @@ if (user) {
                  }`}>
                 <UsersGroup className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 <span class="font-medium">Grupos</span>
-              </a>
-
-              <a href="/admin/validacion-firmas"
-                 class={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 transition-all duration-200 group ${
-                   isActive('/admin/validacion-firmas')
-                     ? 'bg-accent text-white'
-                     : 'text-gray-700 hover:bg-gray-100 hover:text-accent'
-                 }`}>
-                <div class="flex items-center gap-3">
-                  <Stamp className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                  <span class="font-medium">Validación de Firmas</span>
-                </div>
-                {badges.validacion_firmas > 0 && (
-                  <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-600 rounded-full">
-                    {badges.validacion_firmas}
-                  </span>
-                )}
               </a>
             </div>
 
