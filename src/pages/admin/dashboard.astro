@@ -1,6 +1,7 @@
 ---
 import AdminLayout from "../../layouts/AdminLayout.astro";
 import StudentLayout from "../../layouts/StudentLayout.astro";
+import ListaSeguimientosEstudiante from "~/components/student/ListaSeguimientosEstudiante.jsx";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "~/env";
 import { connectDB } from "~/utils/db.js";
@@ -132,33 +133,62 @@ if (user.role === "profesor") {
     grupo = await db.collection("grupos").findOne({ _id: proceso.grupoId });
   }
 
-  // Obtener sus seguimientos
-  let seguimientos = [];
-  if (grupo) {
-    seguimientos = await db.collection("seguimientos-practicas")
-      .find({ grupoId: grupo._id })
-      .toArray();
-  }
-
-  // Contar recursos de seguimiento completados vs pendientes
+  // Obtener sus seguimientos agrupados por grupo
+  let seguimientosPorGrupo = [];
   let recursosPendientes = 0;
   let recursosValidados = 0;
   let recursosRechazados = 0;
 
-  if (seguimientos.length > 0) {
-    const recursos = await db.collection("recursos")
-      .find({
-        tipo: "seguimiento",
-        usuarioId: new ObjectId(user.id),
-        grupoId: grupo?._id
-      })
+  if (grupo) {
+    // Obtener todos los seguimientos del grupo
+    const seguimientos = await db.collection("seguimientos-practicas")
+      .find({ grupoId: grupo._id })
       .toArray();
 
-    recursos.forEach(r => {
-      if (r.estado === "pendiente") recursosPendientes++;
-      else if (r.estado === "validado") recursosValidados++;
-      else if (r.estado === "rechazado") recursosRechazados++;
-    });
+    // Para cada seguimiento, buscar el recurso del estudiante actual en las entradas
+    const seguimientosConRecursos = [];
+
+    for (const seg of seguimientos) {
+      // Buscar la entrada de este estudiante en el seguimiento
+      const entrada = seg.entradas?.find(e => e.estudianteId === user.id);
+
+      if (entrada && entrada.recursoId) {
+        // Obtener el recurso del estudiante
+        const recurso = await db.collection("recursos").findOne({
+          _id: new ObjectId(entrada.recursoId)
+        });
+
+        if (recurso) {
+          if (recurso.estado === "pendiente") recursosPendientes++;
+          else if (recurso.estado === "validado") recursosValidados++;
+          else if (recurso.estado === "rechazado") recursosRechazados++;
+
+          seguimientosConRecursos.push({
+            _id: seg._id.toString(),
+            titulo: seg.titulo,
+            descripcion: seg.descripcion,
+            recurso: {
+              _id: recurso._id.toString(),
+              url: recurso.url,
+              estado: recurso.estado,
+              notasAdicionales: recurso.notasAdicionales
+            },
+            estado: recurso.estado
+          });
+        }
+      }
+    }
+
+    // Agrupar seguimientos con sus recursos
+    seguimientosPorGrupo = [
+      {
+        grupo: {
+          _id: grupo._id.toString(),
+          nombre: grupo.nombre
+        },
+        seguimientos: seguimientosConRecursos
+      }
+    ];
   }
 
   dashboardData = {
@@ -166,7 +196,7 @@ if (user.role === "profesor") {
     estudiante,
     proceso,
     grupo,
-    seguimientos,
+    seguimientosPorGrupo,
     recursosPendientes,
     recursosValidados,
     recursosRechazados
@@ -320,24 +350,15 @@ if (user.role === "profesor") {
           </div>
         </div>
 
-        <!-- Seguimientos -->
-        {dashboardData.seguimientos.length > 0 ? (
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Mis Seguimientos</h2>
-            <div class="space-y-3">
-              {dashboardData.seguimientos.map((seg) => (
-                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <p class="font-medium text-gray-800">{seg.titulo}</p>
-                  {seg.descripcion && <p class="text-sm text-gray-600 mt-1">{seg.descripcion}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div class="bg-blue-50 border border-blue-200 rounded-xl p-6">
-            <p class="text-blue-800 font-medium">No hay seguimientos disponibles aún</p>
-          </div>
-        )}
+        <!-- Mis Seguimientos con Modal -->
+        <ListaSeguimientosEstudiante
+          client:load
+          seguimientosPorGrupo={dashboardData.seguimientosPorGrupo}
+          onSeguimientoSaved={() => {
+            // Recargar datos si es necesario
+            window.location.reload();
+          }}
+        />
       </>
     ) : (
       <>
