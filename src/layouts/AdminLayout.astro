@@ -10,13 +10,22 @@ const { title = "Panel Administrador FESC" } = Astro.props;
 const currentUrl = Astro.url.pathname;
 
 const isActive = (path: string) => currentUrl === path || currentUrl.startsWith(path + '/');
+
+
 import { Building, Home, Plus, Users, LogOut, User, RefreshCw, BarChart3, CreditCard, UserCheck, BookOpen, ClipboardList, Users as UsersIcon, Briefcase, FileText, Users as UsersGroup, Stamp } from "lucide-react";
 
 const token = Astro.cookies.get("token")?.value;
 let user = null;
+let userName = "Usuario";
+
 if (token) {
   try {
     user = jwt.verify(token, JWT_SECRET);
+
+    // Obtener nombre del JWT si está disponible
+    if (user) {
+      userName = user.nombres || user.name || user.username || "Usuario";
+    }
   } catch (err) {
     user = null;
   }
@@ -396,7 +405,7 @@ if (user) {
             <div class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
               <User className="w-4 h-4 text-gray-600" />
             </div>
-            <span class="text-sm text-gray-600">Administrador</span>
+            <span class="text-sm text-gray-600">{userName}</span>
           </div>
           <a href="/login" class="text-sm text-gray-500 hover:text-accent transition-colors flex items-center gap-1">
             <LogOut className="w-4 h-4" />

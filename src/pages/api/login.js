@@ -21,6 +21,7 @@ export async function POST({ request }) {
     {
       id: user._id.toString(),
       username: user.username,
+      nombres: user.nombres || user.name,
       role: user.role
     },
     JWT_SECRET,
