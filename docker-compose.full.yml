@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: fesc-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: fesc
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - fesc-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Aplicación FESC
+  app:
+    build: .
+    container_name: fesc-app
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "4321:4321"
+    environment:
+      # MongoDB Connection - Usa 'mongodb' como hostname (nombre del servicio)
+      - MONGODB_URI=mongodb://admin:admin123@mongodb:27017/fesc?authSource=admin
+
+      # JWT Secret (CAMBIAR EN PRODUCCIÓN)
+      - JWT_SECRET=your-secret-key-change-this-in-production
+
+      # Usuario admin inicial
+      - ADMIN_USER=admin
+      - ADMIN_PASS=admin123
+      - ADMIN_ROLE=admin
+
+      # Environment
+      - NODE_ENV=production
+    volumes:
+      - ./public/uploads:/app/public/uploads
+    networks:
+      - fesc-network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+
+networks:
+  fesc-network:
+    driver: bridge
