@@ -10,8 +10,9 @@ services:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: admin123
       MONGO_INITDB_DATABASE: fesc
-    ports:
-      - "27017:27017"
+    # No exponemos el puerto - solo accesible internamente por la app
+    # ports:
+    #   - "27017:27017"
     volumes:
       - mongodb_data:/data/db
       - mongodb_config:/data/configdb
